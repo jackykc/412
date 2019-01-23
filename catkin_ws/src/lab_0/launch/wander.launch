@@ -1,0 +1,13 @@
+<launch>
+    <include file="$(find turtlebot_teleop)/launch/includes/velocity_smoother.launch.xml"/>
+    <arg name="g_range_ahead" default="0.5"/>
+
+
+    <node pkg="lab_0" type="wander_sm.py" name="wander_sm">
+        <param name="g_range_ahead" value="$(arg g_range_ahead)"/>
+
+        <param name="scale_angular" value="1.5"/>
+        <param name="scale_linear" value="0.5"/>
+        <remap from="cmd_vel_mux/input/teleop" to="teleop_velocity_smoother/raw_cmd_vel"/>
+    </node>
+</launch>
