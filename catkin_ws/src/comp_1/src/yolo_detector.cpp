@@ -307,15 +307,15 @@ void YoloDetector::runYolo(const cv::Mat &fullFrame) {
   // categorize bounding boxes by class
   if (!candidates.empty()) {
     // display number of objects
-    ROS_INFO("# Objects: %lu", candidates.size());
+    // ROS_INFO("# Objects: %lu", candidates.size());
     for (YoloBox &candidate : candidates) {
       for (int j = 0; j < numYoloClasses_; j++) {
         if (candidate.whichClass == j) {
           classedBoxes_[j].push_back(candidate);
 
           // display confidence of each detection
-          ROS_INFO("%s (%f%%)", yoloClasses_[j].name_.c_str(),
-                   candidate.prob * 100);
+          // ROS_INFO("%s (%f%%)", yoloClasses_[j].name_.c_str(),
+          //          candidate.prob * 100);
         }
       }
     }

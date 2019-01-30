@@ -31,7 +31,7 @@ int main(int argc, char** argv) {
 //   DetectorHandler detectorHandler;  // initialize detectorHandler object to
                                     // dynamically switch detectors
   // get rate param
-  int spinRate = 10;
+  int spinRate = 5;
 
   ros::Rate rate(spinRate);
   while (true) {

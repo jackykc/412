@@ -24,7 +24,20 @@
 import rospy
 from sensor_msgs.msg import RegionOfInterest, CameraInfo
 from geometry_msgs.msg import Twist
+from sensor_msgs.msg import LaserScan, Joy
+
 import thread
+
+global start
+start = False
+def joy_callback(msg):
+    global start
+    if msg.buttons[0] == 1:
+        rospy.loginfo("start pressed!")
+        start = not start
+rospy.Subscriber("/joy", Joy, joy_callback)
+
+
 
 class ObjectTracker():
     def __init__(self):
@@ -45,14 +58,14 @@ class ObjectTracker():
         
         # Sensitivity to target displacements.  Setting this too high
         # can lead to oscillations of the robot.
-        self.gain = rospy.get_param("~gain", 2.0)
+        self.gain = rospy.get_param("~gain", 0.2)
         
         # The x threshold (% of image width) indicates how far off-center
         # the ROI needs to be in the x-direction before we react
         self.x_threshold = rospy.get_param("~x_threshold", 0.1)
 
         # Publisher to control the robot's movement
-        self.cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=5)
+        self.cmd_vel_pub = rospy.Publisher('teleop_velocity_smoother/raw_cmd_vel', Twist, queue_size=5)
         
         # Intialize the movement command
         self.move_cmd = Twist()
@@ -69,33 +82,44 @@ class ObjectTracker():
         
         # Wait for the camera_info topic to become available
         rospy.loginfo("Waiting for camera_info topic...")
-        rospy.wait_for_message('camera_info', CameraInfo)
+        rospy.wait_for_message('camera/rgb/camera_info', CameraInfo)
         
+        rospy.loginfo("got camera info")
         # Subscribe the camera_info topic to get the image width and height
-        rospy.Subscriber('camera_info', CameraInfo, self.get_camera_info, queue_size=1)
+        rospy.Subscriber('camera/rgb/camera_info', CameraInfo, self.get_camera_info, queue_size=1)
 
         # Wait until we actually have the camera data
         while self.image_width == 0 or self.image_height == 0:
+            rospy.loginfo("waiting for image")
             rospy.sleep(1)
                     
         # Subscribe to the ROI topic and set the callback to update the robot's motion
-        rospy.Subscriber('roi', RegionOfInterest, self.set_cmd_vel, queue_size=1)
+        rospy.Subscriber('YoloDetector/roi', RegionOfInterest, self.set_cmd_vel, queue_size=1)
         
+        rospy.loginfo("subscribed to roi")
+
         # Wait until we have an ROI to follow
         rospy.loginfo("Waiting for messages on /roi...")
-        rospy.wait_for_message('roi', RegionOfInterest)
+        rospy.wait_for_message('YoloDetector/roi', RegionOfInterest)
         
         rospy.loginfo("ROI messages detected. Starting tracker...")
         
+        global start
+        start = False
         # Begin the tracking loop
         while not rospy.is_shutdown():
             # Acquire a lock while we're setting the robot speeds
+            rospy.loginfo(start)
+            if not start:
+                continue
+
             self.lock.acquire()
             
             try:
                 # If the target is not visible, stop the robot
                 if not self.target_visible:
                     self.move_cmd = Twist()
+                    self.move_cmd.angular.z = 0.2
                 else:
                     # Reset the flag to False by default
                     self.target_visible = False
@@ -131,6 +155,9 @@ class ObjectTracker():
             except:
                 percent_offset_x = 0
     
+            roi_area = msg.width
+            image_area = self.image_width
+
             # Rotate the robot only if the displacement of the target exceeds the threshold
             if abs(percent_offset_x) > self.x_threshold:
                 # Set the rotation speed proportional to the displacement of the target
@@ -144,9 +171,14 @@ class ObjectTracker():
                                                 min(self.max_rotation_speed, abs(speed)))
                 except:
                     self.move_cmd = Twist()
+                if (float(roi_area) / float(image_area) < 0.4):
+                    self.move_cmd.linear.x = 0.4
             else:
                 # Otherwise stop the robot
                 self.move_cmd = Twist()
+                if (float(roi_area) / float(image_area) < 0.4):
+                    self.move_cmd.linear.x = 0.4
+            
 
         finally:
             # Release the lock
