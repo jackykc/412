@@ -1,0 +1,15 @@
+<launch>
+    <arg name="cameraFront"                 default="/camera/rgb/image_raw"/>
+    <!-- <arg name="cameraFront"                 default="/turtlebot1/camera/rgb/image_raw"/> -->
+
+    <!-- Yolo -->
+    <!-- Arguments to generate darknet network -->
+    <arg name="yolo_params"                 default="yolo.yaml"/>
+
+    <!-- Start detector handler -->
+    <node pkg="comp_1" type="yolo_detector_node" name="YoloDetector" output="screen">
+        <param name="cameraFront"           value="$(arg cameraFront)"/>
+        <!-- Yolo detector params -->
+        <rosparam command="load" file="$(find au_vision)/params/$(arg yolo_params)" />
+    </node>
+</launch>

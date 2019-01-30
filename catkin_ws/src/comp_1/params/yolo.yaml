@@ -1,0 +1,13 @@
+cfg_model: 1classesV3.cfg
+weights_model: 1classesV3_3000.weights
+object_threshold: 0.3
+class_names: ['turtle_bot']
+class_widths: [40.64]
+class_heights: [40.64]
+
+# cfg_model: 4classesV3.cfg
+# weights_model: 4classesV3_17000.weights
+# object_threshold: 0.3
+# class_names: ['dice1', 'dice2', 'dice5', 'dice6']
+# class_widths: [40.64, 40.64, 40.64, 40.64]
+# class_heights: [40.64, 40.64, 40.64, 40.64]
