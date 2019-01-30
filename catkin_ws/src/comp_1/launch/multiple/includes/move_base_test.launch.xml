@@ -4,10 +4,10 @@
 
 <launch>
   <arg name="ns" default="" />
-  <include file="$(find multiple_turtlebots)/launch/multiple/includes/velocity_smoother.launch.xml">
+  <include file="$(find comp_1)/launch/multiple/includes/velocity_smoother.launch.xml">
     <arg name="ns" value="$(arg ns)" />
   </include>
-  <include file="$(find multiple_turtlebots)/launch/multiple/includes/safety_controller.launch.xml">
+  <include file="$(find comp_1)/launch/multiple/includes/safety_controller.launch.xml">
     <arg name="ns" value="$(arg ns)" />
   </include>
   

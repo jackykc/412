@@ -27,7 +27,7 @@ def joy_callback(msg):
 g_range_ahead = 1  # anything to start
 rospy.Subscriber("scan", LaserScan, scan_callback)
 rospy.Subscriber("/joy", Joy, joy_callback)
-cmd_vel_pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
+cmd_vel_pub = rospy.Publisher("teleop_velocity_smoother/raw_cmd_vel", Twist, queue_size=1)
 rospy.init_node("wander")
 state_change_time = rospy.Time.now()
 driving_forward = True
@@ -67,7 +67,7 @@ while not rospy.is_shutdown():
         if turn_left:
             print("turn left")
             twist.linear.x = 0.1
-            twist.angular.z = 1
+            twist.angular.z = 1.5
             if min(ranges[100:540]) > 0.8 or rospy.Time.now() > state_change_time :
                 driving_forward = True  # we're done spinning, time to go forwards!
                 state_change_time = rospy.Time.now() + rospy.Duration(30)
@@ -76,7 +76,7 @@ while not rospy.is_shutdown():
         if turn_right:
             print("turn right")
             twist.linear.x = 0.1
-            twist.angular.z = -1
+            twist.angular.z = -1.5
             if min(ranges[100:540]) > 0.8 or rospy.Time.now() > state_change_time :
                 driving_forward = True  # we're done spinning, time to go forwards!
                 state_change_time = rospy.Time.now() + rospy.Duration(30)
