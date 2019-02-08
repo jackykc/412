@@ -30,14 +30,13 @@ import thread
 
 global start
 start = False
+
 def joy_callback(msg):
     global start
     if msg.buttons[0] == 1:
         rospy.loginfo("start pressed!")
         start = not start
-rospy.Subscriber("/joy", Joy, joy_callback)
-
-
+rospy.Subscriber("joy", Joy, joy_callback)
 
 class ObjectTracker():
     def __init__(self):
@@ -58,14 +57,14 @@ class ObjectTracker():
         
         # Sensitivity to target displacements.  Setting this too high
         # can lead to oscillations of the robot.
-        self.gain = rospy.get_param("~gain", 0.2)
+        self.gain = rospy.get_param("~gain", 2.7)
         
         # The x threshold (% of image width) indicates how far off-center
         # the ROI needs to be in the x-direction before we react
         self.x_threshold = rospy.get_param("~x_threshold", 0.1)
 
         # Publisher to control the robot's movement
-        self.cmd_vel_pub = rospy.Publisher('teleop_velocity_smoother/raw_cmd_vel', Twist, queue_size=5)
+        self.cmd_vel_pub = rospy.Publisher('cmd_vel', Twist, queue_size=5)
         
         # Intialize the movement command
         self.move_cmd = Twist()
@@ -73,6 +72,7 @@ class ObjectTracker():
         # Get a lock for updating the self.move_cmd values
         self.lock = thread.allocate_lock()
         
+        self.turnDirection = 1
         # We will get the image width and height from the camera_info topic
         self.image_width = 0
         self.image_height = 0
@@ -109,7 +109,6 @@ class ObjectTracker():
         # Begin the tracking loop
         while not rospy.is_shutdown():
             # Acquire a lock while we're setting the robot speeds
-            rospy.loginfo(start)
             if not start:
                 continue
 
@@ -119,7 +118,7 @@ class ObjectTracker():
                 # If the target is not visible, stop the robot
                 if not self.target_visible:
                     self.move_cmd = Twist()
-                    self.move_cmd.angular.z = 0.2
+                    self.move_cmd.angular.z = self.turnDirection * 0.4
                 else:
                     # Reset the flag to False by default
                     self.target_visible = False
@@ -167,17 +166,19 @@ class ObjectTracker():
                         direction = -1
                     else:
                         direction = 1
+                    self.move_cmd = Twist()
                     self.move_cmd.angular.z = -direction * max(self.min_rotation_speed,
                                                 min(self.max_rotation_speed, abs(speed)))
+                    self.turnDirection = -direction
                 except:
                     self.move_cmd = Twist()
-                if (float(roi_area) / float(image_area) < 0.4):
-                    self.move_cmd.linear.x = 0.4
+                if (float(roi_area) / float(image_area) < 0.3):
+                    self.move_cmd.linear.x = 0.5
             else:
                 # Otherwise stop the robot
                 self.move_cmd = Twist()
-                if (float(roi_area) / float(image_area) < 0.4):
-                    self.move_cmd.linear.x = 0.4
+                if (float(roi_area) / float(image_area) < 0.3):
+                    self.move_cmd.linear.x = 0.5
             
 
         finally:

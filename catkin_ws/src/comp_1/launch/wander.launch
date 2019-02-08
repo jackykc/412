@@ -1,9 +1,0 @@
-
-<launch>
-    <arg name="robot_name" default=""/>
-    
-    <node pkg="comp_1" name="wander" type="wander.py" ns="$(arg robot_name)" output="screen">
-
-        <param name="robot_name" value="$(arg robot_name)"/>
-    </node>
-</launch>

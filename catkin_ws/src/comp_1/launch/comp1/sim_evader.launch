@@ -1,0 +1,10 @@
+
+<launch>
+    <arg name="robot_name" default="turtlebot2"/>
+
+    <node pkg="comp_1" name="evader" type="evader.py" ns="$(arg robot_name)" output="screen">
+        <remap from="cmd_vel" to="cmd_vel_mux/input/teleop"/>
+    </node>
+
+    <node pkg="joy" name="joy_node" type="joy_node" ns="$(arg robot_name)" output="screen"/>
+</launch>

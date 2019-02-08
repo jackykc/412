@@ -1,9 +1,8 @@
 /**
- * @file yolo_detector.cpp
- * @author Sean Scheideman
- * @date 14 Jun 2016
- * @brief Implementation for the YoloDetector class
- *
+ * Yolo detector class
+ * This is a modified version of the yolo detector class written in 2017
+ * by Sean Sceideman and rewritten by Jacky Chung in 2018. It allows detection
+ * using https://github.com/pjreddie/darknet on an OpenCv Mat 
  */
 
 #include <comp_1/yolo_detector.h>
@@ -14,8 +13,6 @@ YoloDetector::YoloDetector(ros::NodeHandle &private_nh,
   net_ = nullptr;
   imageToProcess_.data = nullptr;
   yoloInit(private_nh);
-    // image_transport::Subscriber sub;
-  // image_transport::ImageTransport it(nh_);
   std::string camera;
   private_nh.getParam("cameraFront", camera);
   ROS_INFO("Camera topic: %s", camera.c_str());
@@ -58,30 +55,7 @@ void YoloDetector::detect(const cv::Mat &frame) {
       roi.y_offset = box.y;
       roi.width = w;
       roi.height = h;
-      // roi.actualWidth = actual_width;
-      // roi.actualHeight = actual_height;
 
-      /*
-      double distance = au_core::calculateDistance(w, h, actual_width,
-                                                   actual_height, cameraInfo);
-      auto x_error = (int)(roi.topLeft.x + (roi.width / 2) - cameraInfo.cx);
-      auto y_error = (int)(roi.topLeft.y + (roi.height / 2) - cameraInfo.cy);
-
-      
-      // In degrees
-      roi.poseEstimate.position.x =
-          au_core::calculateAngle(x_error, cameraInfo.width, cameraInfo.fov);
-      // In metres
-      roi.poseEstimate.position.y =
-          au_core::calculateLateral(y_error, cameraInfo.fy, (float)distance) /
-          100.0;
-      // In metres
-      roi.poseEstimate.position.z = distance / 100.0;
-      */
-      // First tag is by default the one drawn
-      // roi.tags.push_back(className);
-
-      // Register addition
       roiArray.push_back(roi);
     }
   }
@@ -113,8 +87,6 @@ void YoloDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg) {
   try {
     cv::Mat temp = cv_bridge::toCvShare(msg, "bgr8")->image;
     detect(temp);
-    // cv::imshow("view", cv_bridge::toCvShare(msg, "bgr8")->image);
-    // cv::waitKey(30);
   } catch (cv_bridge::Exception& e) {
     ROS_ERROR("Could not convert from '%s' to 'bgr8'.", msg->encoding.c_str());
   }
@@ -160,14 +132,14 @@ void YoloDetector::yoloInit(ros::NodeHandle nodeHandle) {
                    std::string("yolo-arvp.weights"));
   ROS_INFO("%s", weightsModel.c_str());
   std::string weightsPath =
-      ros::package::getPath("au_vision") + "/weights/" + weightsModel;
+      ros::package::getPath("comp_1") + "/weights/" + weightsModel;
   weights = new char[weightsPath.length() + 1];
   strcpy(weights, weightsPath.c_str());
 
   // Path to config file.
   nodeHandle.param("cfg_model", cfgModel, std::string("yolo-arvp.cfg"));
   std::string configPath =
-      ros::package::getPath("au_vision") + "/cfg/" + cfgModel;
+      ros::package::getPath("comp_1") + "/cfg/" + cfgModel;
   cfg = new char[configPath.length() + 1];
   strcpy(cfg, configPath.c_str());
 

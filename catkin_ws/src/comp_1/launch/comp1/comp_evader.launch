@@ -1,0 +1,11 @@
+
+<launch>
+    <include file="$(find comp_1)/launch/include/velocity_smoother.launch.xml"/>
+
+    <node pkg="comp_1" name="evader" type="evader.py" output="screen">
+        <remap from="cmd_vel" to="teleop_velocity_smoother/raw_cmd_vel"/>
+    </node>
+
+    <node pkg="joy" name="joy_node" type="joy_node" output="screen">
+    </node>
+</launch>

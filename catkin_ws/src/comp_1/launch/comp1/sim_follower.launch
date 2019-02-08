@@ -1,0 +1,22 @@
+
+<launch>
+    <arg name="robot_name" default="turtlebot1"/>        
+    <!-- Need better method of defining camera topic-->
+    <arg name="cameraFront"                 default="/$(arg robot_name)/camera/rgb/image_raw"/> 
+    <arg name="yolo_params"                 default="yolo.yaml"/>
+
+    <include file="$(find comp_1)/launch/include/velocity_smoother.launch.xml"/>
+    <node pkg="comp_1" name="follower" type="object_tracker.py" ns="$(arg robot_name)" output="screen">
+        <remap from="cmd_vel" to="cmd_vel_mux/input/teleop"/>
+    </node>
+
+    <node pkg="joy" name="joy_node" type="joy_node"  ns="$(arg robot_name)" output="screen">
+    </node>
+
+    <!-- Start detector handler -->
+    <node pkg="comp_1" type="yolo_detector_node" name="YoloDetector" ns="$(arg robot_name)" output="screen">
+        <param name="cameraFront"           value="$(arg cameraFront)"/>
+        <!-- Yolo detector params -->
+        <rosparam command="load" file="$(find comp_1)/params/$(arg yolo_params)" />
+    </node>
+</launch>

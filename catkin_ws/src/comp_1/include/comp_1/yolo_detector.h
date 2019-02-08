@@ -1,6 +1,3 @@
-// #include <au_core/vision_util.h>
-// #include <au_vision/detector.h>
-// #include <au_vision/util.h>
 #include <ros/ros.h>
 #include <ros/package.h>
 #include <image_transport/image_transport.h>

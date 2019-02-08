@@ -1,4 +1,0 @@
-roslaunch lab_0 demo_1.launch world_file:=/home/jkc1/catkin_ws/src/lab_0/demo_1  
-roslaunch turtlebot_rviz_launchers view_robot.launch
-roslaunch lab_0 wander.launch
-rosrun smach_viewer smach_viewer.py
