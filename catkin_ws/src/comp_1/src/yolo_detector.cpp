@@ -83,6 +83,7 @@ void YoloDetector::debugDraw(cv::Mat &frame, sensor_msgs::RegionOfInterest& roi)
                   CV_AA);
 }
 
+// attempt to run detection on a subscribed image
 void YoloDetector::imageCallback(const sensor_msgs::ImageConstPtr& msg) {
   try {
     cv::Mat temp = cv_bridge::toCvShare(msg, "bgr8")->image;
