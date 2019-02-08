@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
 """
+    This is a modified version of the example
+    https://github.com/pirobot/rbx1/blob/indigo-devel/rbx1_apps/nodes/object_tracker.py
+    provided prior to the competition
+
     object_tracker.py - Version 1.1 2013-12-20
     
     Rotate the robot left or right to follow a target published on the /roi topic.
@@ -115,7 +119,7 @@ class ObjectTracker():
             self.lock.acquire()
             
             try:
-                # If the target is not visible, stop the robot
+                # If the target is not visible rotate
                 if not self.target_visible:
                     self.move_cmd = Twist()
                     self.move_cmd.angular.z = self.turnDirection * 0.4
@@ -175,7 +179,7 @@ class ObjectTracker():
                 if (float(roi_area) / float(image_area) < 0.3):
                     self.move_cmd.linear.x = 0.5
             else:
-                # Otherwise stop the robot
+                # Otherwise stop the robot from rotating
                 self.move_cmd = Twist()
                 if (float(roi_area) / float(image_area) < 0.3):
                     self.move_cmd.linear.x = 0.5
