@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 from sensor_msgs.msg import Image
+from sensor_msgs.msg import Joy
 from geometry_msgs.msg import Twist
 import cv2, cv_bridge, numpy
 import smach
@@ -11,9 +12,20 @@ line_lost = False
 stop_count = 0
 rospy.init_node('follower')
 err = 0
-def image_callback(msg):
+
+global start
+start = False
+def joy_callback(msg):
+    global start
+    if msg.buttons[0] == 1:
+        rospy.loginfo("start pressed!")
+        start = not start
+        if not start:
+            while True:
+                continue 
+
+def follow_line(image):
     global stop, donot_check_time, image_pub, err, line_lost
-    image = bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     lower_white = numpy.array([0, 0,  242])
     upper_white = numpy.array([170, 50, 256])
@@ -62,7 +74,11 @@ def image_callback(msg):
         line_lost = True
     image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
 
+def image_callback(msg):
+    image = bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
+    follow_line(image)
 
+rospy.Subscriber("/joy", Joy, joy_callback)
 bridge = cv_bridge.CvBridge()
 image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, image_callback)
 image_pub = rospy.Publisher('transformed_img', Image, queue_size=1)
@@ -270,6 +286,9 @@ with sm:
 # Create and start the introspection server
 sis = smach_ros.IntrospectionServer('server_name', sm, '/SM_ROOT')
 sis.start()
+
+while not start:
+    continue
 
 outcome = sm.execute()
 rospy.spin()

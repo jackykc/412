@@ -11,8 +11,8 @@ action = 2
 def detect_1(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    lower_red = numpy.array([0, 242,  35])
-    upper_red = numpy.array([0, 256, 256])
+    lower_red = numpy.array([130, 132,  110])
+    upper_red = numpy.array([180, 256, 256])
     
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
 
@@ -22,9 +22,9 @@ def detect_1(image):
     thresh = cv2.filter2D(thresh,-1,kernel)
     
     im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    contours = list(filter(lambda c: c.size > 110, contours))
+    contours = list(filter(lambda c: c.size > 100, contours))
     print len(contours)
-    cv2.drawContours(image, contours, -1, (0,255,0), 3)
+    cv2.drawContours(image, contours, -1, (0, 0, 255), 3)
 
     masked = cv2.bitwise_and(image, image, mask=mask_red)
 
@@ -33,35 +33,37 @@ def detect_1(image):
 def detect_2(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    lower_red = numpy.array([0, 205,  93])
-    upper_red = numpy.array([0, 255, 255])
+    # lower_red = numpy.array([0, 205,  93])
+    # upper_red = numpy.array([0, 255, 255])
+    lower_red = numpy.array([130, 132,  110])
+    upper_red = numpy.array([200, 256, 256])
     lower_green = numpy.array([44, 54,  63])
     upper_green = numpy.array([88, 255, 255])
     
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
     mask_green = cv2.inRange(hsv, lower_green, upper_green)
 
-    # ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
+    ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
 
     thresh_red = mask_red#thresh_red
     thresh_green = mask_green
 
-    # kernel = numpy.ones((3,3),numpy.float32)/25
-    # thresh_red = cv2.filter2D(thresh_red,-1,kernel)
+    kernel = numpy.ones((3,3),numpy.float32)/25
+    thresh_red = cv2.filter2D(thresh_red,-1,kernel)
     
     _, contours_green, hierarchy = cv2.findContours(thresh_green, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     _, contours_red, hierarchy = cv2.findContours(thresh_red, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     
     contours_green = list(filter(lambda c: c.size > 70, contours_green))
     contours_red = list(filter(lambda c: c.size > 40, contours_red))
-
-    print len(contours_red)
-
     
-    cv2.drawContours(image, contours_red, -1, (0,255,0), 3)
+    print str(len(contours_red)) + " " + str(len(contours_green))
+
+    cv2.drawContours(image, contours_green, -1, (0,255,0), 3)
+    cv2.drawContours(image, contours_red, -1, (0,0,255), 3)
 
     mask = cv2.bitwise_or(mask_red, mask_green)
-    masked = cv2.bitwise_and(image, image, mask=mask_red)
+    masked = cv2.bitwise_and(image, image, mask=mask)
 
     return masked, len(contours_red)
 def detect_3(image):
