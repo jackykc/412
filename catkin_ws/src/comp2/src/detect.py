@@ -57,7 +57,7 @@ def detect_2(image):
     contours_green = list(filter(lambda c: c.size > 70, contours_green))
     contours_red = list(filter(lambda c: c.size > 40, contours_red))
     
-    print str(len(contours_red)) + " " + str(len(contours_green))
+    # print str(len(contours_red)) + " " + str(len(contours_green))
 
     cv2.drawContours(image, contours_green, -1, (0,255,0), 3)
     cv2.drawContours(image, contours_red, -1, (0,0,255), 3)
@@ -65,9 +65,19 @@ def detect_2(image):
     mask = cv2.bitwise_or(mask_red, mask_green)
     masked = cv2.bitwise_and(image, image, mask=mask)
 
+    if len(contours_green):
+        get_shape(contours_green[0])
+
     return masked, len(contours_red)
 def detect_3(image):
     return 12
+
+def get_shape(c):
+        # initialize the shape name and approximate the contour
+    shape = "unidentified"
+    peri = cv2.arcLength(c, True)
+    approx = cv2.approxPolyDP(c, 0.04 * peri, True)
+    print len(approx)
 
 def image_callback(msg):
     image = bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
