@@ -26,10 +26,7 @@ def joy_callback(msg):
     global start
     if msg.buttons[0] == 1:
         rospy.loginfo("start pressed!")
-        start = not start
-        if not start:
-            while True:
-                continue 
+        start = not start 
 
 def follow_line(image):
     global stop, donot_check_time, image_pub, err, line_lost
@@ -172,8 +169,11 @@ class Go(smach.State):
         smach.State.__init__(self, outcomes=['stop'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, err, cmd_vel_pub, stop_count
+        global stop, err, cmd_vel_pub, stop_count, start
         while not rospy.is_shutdown():
+            while not start:
+                continue
+
             if stop:
                 stop = False
                 return 'stop'
@@ -378,9 +378,6 @@ with sm:
 # Create and start the introspection server
 sis = smach_ros.IntrospectionServer('server_name', sm, '/SM_ROOT')
 sis.start()
-
-while not start:
-    continue
 
 outcome = sm.execute()
 rospy.spin()
