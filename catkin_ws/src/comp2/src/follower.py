@@ -13,8 +13,15 @@ stop_count = 0
 rospy.init_node('follower')
 err = 0
 
-global start
+global start, callback_state
 start = False
+callback_state = 0
+'''
+0 follow line
+1 task 1
+2 task 2
+3 task 3
+'''
 def joy_callback(msg):
     global start
     if msg.buttons[0] == 1:
@@ -74,10 +81,83 @@ def follow_line(image):
         line_lost = True
     image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
 
-def image_callback(msg):
-    image = bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
-    follow_line(image)
+def detect_1(image):
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
+    lower_red = numpy.array([130, 132,  110])
+    upper_red = numpy.array([180, 256, 256])
+    
+    mask_red = cv2.inRange(hsv, lower_red, upper_red)
+
+    ret, thresh = cv2.threshold(mask_red, 127, 255, 0)
+    
+    kernel = numpy.ones((9,9),numpy.float32)/25
+    thresh = cv2.filter2D(thresh,-1,kernel)
+    
+    im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    contours = list(filter(lambda c: c.size > 100, contours))
+    print len(contours)
+    cv2.drawContours(image, contours, -1, (0, 0, 255), 3)
+
+    masked = cv2.bitwise_and(image, image, mask=mask_red)
+
+    return len(contours)
+
+def detect_2(image):
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+    # lower_red = numpy.array([0, 205,  93])
+    # upper_red = numpy.array([0, 255, 255])
+    lower_red = numpy.array([130, 132,  110])
+    upper_red = numpy.array([200, 256, 256])
+    lower_green = numpy.array([44, 54,  63])
+    upper_green = numpy.array([88, 255, 255])
+    
+    mask_red = cv2.inRange(hsv, lower_red, upper_red)
+    mask_green = cv2.inRange(hsv, lower_green, upper_green)
+
+    ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
+
+    thresh_red = mask_red#thresh_red
+    thresh_green = mask_green
+
+    kernel = numpy.ones((3,3),numpy.float32)/25
+    thresh_red = cv2.filter2D(thresh_red,-1,kernel)
+    
+    _, contours_green, hierarchy = cv2.findContours(thresh_green, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    _, contours_red, hierarchy = cv2.findContours(thresh_red, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
+    contours_green = list(filter(lambda c: c.size > 70, contours_green))
+    contours_red = list(filter(lambda c: c.size > 40, contours_red))
+    
+    print str(len(contours_red)) + " " + str(len(contours_green))
+
+    cv2.drawContours(image, contours_green, -1, (0,255,0), 3)
+    cv2.drawContours(image, contours_red, -1, (0,0,255), 3)
+
+    mask = cv2.bitwise_or(mask_red, mask_green)
+    masked = cv2.bitwise_and(image, image, mask=mask)
+
+    return len(contours_red) + 1
+def detect_3(image):
+    return 100
+
+
+def image_callback(msg):
+    global callback_state
+    image = bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
+    if callback_state == 0:
+        follow_line(image)
+    elif callback_state == 1:
+        count = detect_1(image)
+        print str(count) + str(" 1")
+    elif callback_state == 2:
+        count = detect_2(image)
+        print str(count) + str(" 2")
+    elif callback_state == 3:
+        count = detect_3(image)
+        print str(count) + str(" 3")
+    
 rospy.Subscriber("/joy", Joy, joy_callback)
 bridge = cv_bridge.CvBridge()
 image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, image_callback)
@@ -141,7 +221,8 @@ class Task1(smach.State):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub
+        global stop, cmd_vel_pub, callback_state
+        callback_state = 1
         wait_time = rospy.Time.now() + rospy.Duration(1)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
@@ -157,14 +238,16 @@ class Task1(smach.State):
             self.twist.linear.x = 0
             self.twist.angular.z = -1.5
             cmd_vel_pub.publish(self.twist)
+        callback_state = 0
         return 'go'
 
 class Task2(smach.State):
+    
     def __init__(self):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub, err,  line_lost
+        global stop, cmd_vel_pub, err,  line_lost, callback_state
         print 'in task 2'
         wait_time = rospy.Time.now() + rospy.Duration(1.5)
         while rospy.Time.now()<wait_time:
@@ -184,11 +267,13 @@ class Task2(smach.State):
             cmd_vel_pub.publish(self.twist)
         # reaches the end, stop for 2 second
         print 'reaches the end'
+        callback_state = 2
         wait_time = rospy.Time.now() + rospy.Duration(2)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 0
             cmd_vel_pub.publish(self.twist)
+        callback_state = 0
         # turn back
         wait_time = rospy.Time.now() + rospy.Duration(2.8)
         while rospy.Time.now()<wait_time:
@@ -220,7 +305,7 @@ class Task3(smach.State):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub
+        global stop, cmd_vel_pub, callback_state
         for i in range(0, 2):
             # track the line
             stop = False
@@ -232,14 +317,18 @@ class Task3(smach.State):
             # check each one
             wait_time = rospy.Time.now() + rospy.Duration(1.4)
             while rospy.Time.now()<wait_time:
+                # turn
                 self.twist.linear.x = 0
                 self.twist.angular.z = 1.5
                 cmd_vel_pub.publish(self.twist)
             wait_time = rospy.Time.now() + rospy.Duration(1)
+            callback_state = 3
             while rospy.Time.now()<wait_time:
+                # stop
                 self.twist.linear.x = 0
                 self.twist.angular.z = 0
                 cmd_vel_pub.publish(self.twist)
+            callback_state = 0
             wait_time = rospy.Time.now() + rospy.Duration(1.4)
             while rospy.Time.now()<wait_time:
                 self.twist.linear.x = 0
@@ -253,14 +342,17 @@ class Task3(smach.State):
             cmd_vel_pub.publish(self.twist)
         wait_time = rospy.Time.now() + rospy.Duration(1.4)
         while rospy.Time.now()<wait_time:
+            # turn
             self.twist.linear.x = 0
             self.twist.angular.z = 1.5
             cmd_vel_pub.publish(self.twist)
         wait_time = rospy.Time.now() + rospy.Duration(1)
+        callback_state = 3
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 0
             cmd_vel_pub.publish(self.twist)
+        callback_state = 0
         wait_time = rospy.Time.now() + rospy.Duration(1.4)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
