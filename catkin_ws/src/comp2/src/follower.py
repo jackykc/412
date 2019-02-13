@@ -2,19 +2,27 @@
 import rospy
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import Joy
+from kobuki_msgs.msg import Led
 from geometry_msgs.msg import Twist
 import cv2, cv_bridge, numpy
 import smach
 import smach_ros
 
-global stop, donot_check_time, image_pub, err, cmd_vel_pub, bridge, stop_count, line_lost
+global stop, donot_check_time, image_pub, err, cmd_vel_pub, bridge, stop_count, line_lost, led_pub1, led_pub2
 line_lost = False
 stop_count = 0
 rospy.init_node('follower')
 err = 0
 
+led_pub1 = rospy.Publisher('/mobile_base/commands/led1', Led, queue_size=1)
+led_pub2 = rospy.Publisher('/mobile_base/commands/led2', Led, queue_size=1)
+# while True:
+#     led_pub.publish(Led(Led.ORANGE))
+
+# exit()
+
 global start, callback_state
-start = False
+start = True
 callback_state = 0
 '''
 0 follow line
@@ -141,13 +149,25 @@ def detect_3(image):
 
 
 def image_callback(msg):
-    global callback_state
+    global callback_state, led_pub1, led_pub2
     image = bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
     if callback_state == 0:
         follow_line(image)
     elif callback_state == 1:
         count = detect_1(image)
         print str(count) + str(" 1")
+        if count == 0:
+            led_pub1.publish(Led(Led.BLACK))
+            led_pub2.publish(Led(Led.BLACK))
+        elif count == 1:
+            led_pub1.publish(Led(Led.BLACK))
+            led_pub2.publish(Led(Led.ORANGE))
+        elif count == 2:
+            led_pub1.publish(Led(Led.ORANGE))
+            led_pub2.publish(Led(Led.BLACK))
+        elif count == 3:
+            led_pub1.publish(Led(Led.ORANGE))
+            led_pub2.publish(Led(Led.ORANGE))
     elif callback_state == 2:
         count = detect_2(image)
         print str(count) + str(" 2")
@@ -222,23 +242,24 @@ class Task1(smach.State):
         self.twist = Twist()
     def execute(self, data):
         global stop, cmd_vel_pub, callback_state
-        callback_state = 1
         wait_time = rospy.Time.now() + rospy.Duration(1)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 1.5
             cmd_vel_pub.publish(self.twist)
         wait_time = rospy.Time.now() + rospy.Duration(1)
+        callback_state = 1
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 0
             cmd_vel_pub.publish(self.twist)
+        callback_state = 0
         wait_time = rospy.Time.now() + rospy.Duration(1)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = -1.5
             cmd_vel_pub.publish(self.twist)
-        callback_state = 0
+        exit()
         return 'go'
 
 class Task2(smach.State):
