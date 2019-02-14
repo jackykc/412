@@ -2,21 +2,23 @@
 import rospy
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import Joy
-from kobuki_msgs.msg import Led
+from kobuki_msgs.msg import Led, Sound
 from geometry_msgs.msg import Twist
 import cv2, cv_bridge, numpy
 import smach
 import smach_ros
 
 
-global stop, donot_check_time, image_pub, err, cmd_vel_pub, bridge, stop_count, line_lost, led_pub1, led_pub2
+global stop, donot_check_time, image_pub, err, cmd_vel_pub, bridge, stop_count, line_lost, led_pub1, led_pub2, sound_pub
 '''
 shape_id
 0 triangle
 1 square
 2 circle
 '''
-global shape_id_counts, object_counts
+global shape_id_counts, object_counts, chosen_shape, shape_found
+shape_found = False
+chosen_shape = "circle"
 shape_id_counts = {
     "task2": numpy.asarray([0, 0, 0]),
     "task3": numpy.asarray([0 ,0 ,0])
@@ -33,6 +35,7 @@ err = 0
 
 led_pub1 = rospy.Publisher('/mobile_base/commands/led1', Led, queue_size=1)
 led_pub2 = rospy.Publisher('/mobile_base/commands/led2', Led, queue_size=1)
+sound_pub = rospy.Publisher('/mobile_base/commands/sound', Sound, queue_size=1)
 
 global start, callback_state
 start = True
@@ -174,9 +177,12 @@ def detect_2(image):
     
 def detect_3(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    lower_red = numpy.array([130, 132,  110])
-    upper_red = numpy.array([200, 256, 256])
-    
+    # lower_red = numpy.array([130, 132,  110])
+    # upper_red = numpy.array([200, 256, 256])
+
+    lower_red = numpy.array([0, 205,  38])
+    upper_red = numpy.array([180, 255, 125])
+
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
 
     # ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
@@ -248,7 +254,6 @@ def image_callback(msg):
         follow_line(image)
     elif callback_state == 1:
         image, count = detect_1(image)
-        print count
         object_counts["task1"][count-1] += 1 # count -1 as index starts at 0
         image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
         # display_led(count)
@@ -265,9 +270,9 @@ def image_callback(msg):
 
 rospy.Subscriber("/joy", Joy, joy_callback)
 bridge = cv_bridge.CvBridge()
-image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, image_callback)
 image_pub = rospy.Publisher('transformed_img', Image, queue_size=1)
 cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=1)
+image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, image_callback)
 # cmd_vel_pub = rospy.Publisher('/teleop_velocity_smoother/raw_cmd_vel', Twist, queue_size=1)
 donot_check_time = rospy.Time.now()
 stop = False
@@ -290,7 +295,7 @@ class Go(smach.State):
 
 class Stop(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['go', 'task1', 'task2', 'task3'])
+        smach.State.__init__(self, outcomes=['go', 'task1', 'task2', 'task3', 'finish'])
         self.twist = Twist()
     def execute(self, data):
         global stop, cmd_vel_pub, stop_count
@@ -314,6 +319,8 @@ class Stop(smach.State):
             return 'task2'
         elif stop_count == 5:
             return 'task3'
+        elif stop_count == -1:
+            return 'finish'
         # regular stop
         wait_time = rospy.Time.now() + rospy.Duration(2)
         while rospy.Time.now()<wait_time:
@@ -364,7 +371,7 @@ class Task1(smach.State):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub, callback_state
+        global stop, cmd_vel_pub, callback_state, sound_pub
         wait_time = rospy.Time.now() + rospy.Duration(1)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
@@ -378,11 +385,16 @@ class Task1(smach.State):
             cmd_vel_pub.publish(self.twist)
         callback_state = 0
         wait_time = rospy.Time.now() + rospy.Duration(1)
+        object_count = numpy.argmax(object_counts["task1"]) + 1
+        for i in range(object_count):
+            wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
+            while rospy.Time.now()<wait_time_sound:
+                sound_pub.publish(Sound(Sound.BUTTON))
         while rospy.Time.now()<wait_time:
+            display_led(object_count)
             self.twist.linear.x = 0
             self.twist.angular.z = -1.5
             cmd_vel_pub.publish(self.twist)
-        # exit()
         return 'go'
 
 class Task2(smach.State):
@@ -391,7 +403,7 @@ class Task2(smach.State):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub, err,  line_lost, callback_state, object_counts
+        global stop, cmd_vel_pub, err,  line_lost, callback_state, object_counts, shape_id_counts, sound_pub, chosen_shape
 
         print 'in task 2'
         wait_time = rospy.Time.now() + rospy.Duration(1.5)
@@ -428,6 +440,11 @@ class Task2(smach.State):
             self.twist.angular.z = 1.5
             cmd_vel_pub.publish(self.twist)
         # track the line
+        for i in range(object_count):
+            wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
+            while rospy.Time.now()<wait_time_sound:
+                sound_pub.publish(Sound(Sound.BUTTON))
+        
         stop = False
         while (not rospy.is_shutdown()) and not stop:
             self.twist.linear.x = 0.2
@@ -445,7 +462,8 @@ class Task2(smach.State):
             self.twist.angular.z = 1.5
             cmd_vel_pub.publish(self.twist)
         stop = False
-        print shape_id_counts["task2"]
+        chosen_shape = get_shape(numpy.argmax(shape_id_counts["task2"]))
+        rospy.loginfo(str(chosen_shape))
 
         return 'go'
 
@@ -454,7 +472,7 @@ class Task3(smach.State):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub, callback_state, object_counts
+        global stop, cmd_vel_pub, callback_state, object_counts, shape_id_counts, chosen_shape, shape_found
         for i in range(0, 2):
             # track the line
             stop = False
@@ -470,7 +488,7 @@ class Task3(smach.State):
                 self.twist.linear.x = 0
                 self.twist.angular.z = 1.5
                 cmd_vel_pub.publish(self.twist)
-            wait_time = rospy.Time.now() + rospy.Duration(30)
+            wait_time = rospy.Time.now() + rospy.Duration(4)
             callback_state = 3
             while rospy.Time.now()<wait_time:
                 # stop
@@ -478,12 +496,27 @@ class Task3(smach.State):
                 self.twist.angular.z = 0
                 cmd_vel_pub.publish(self.twist)
             callback_state = 0
+            current_shape = get_shape(numpy.argmax(shape_id_counts["task3"]))
+            rospy.loginfo(str(current_shape))
+            if (current_shape == chosen_shape) and not shape_found:
+                shape_found = True
+                wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
+                while rospy.Time.now()<wait_time_sound:
+                    sound_pub.publish(Sound(Sound.BUTTON))
+        
             wait_time = rospy.Time.now() + rospy.Duration(1.4)
             while rospy.Time.now()<wait_time:
                 self.twist.linear.x = 0
                 self.twist.angular.z = -1.5
                 cmd_vel_pub.publish(self.twist)
+            wait_time = rospy.Time.now() + rospy.Duration(1)
+            while rospy.Time.now()<wait_time:
+                # backup
+                self.twist.linear.x = -0.2
+                self.twist.angular.z = 0
+                cmd_vel_pub.publish(self.twist)
         # check last one
+        
         wait_time = rospy.Time.now() + rospy.Duration(2.7)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0.2
@@ -495,21 +528,29 @@ class Task3(smach.State):
             self.twist.linear.x = 0
             self.twist.angular.z = 1.5
             cmd_vel_pub.publish(self.twist)
-        wait_time = rospy.Time.now() + rospy.Duration(30)
+        wait_time = rospy.Time.now() + rospy.Duration(4)
         callback_state = 3
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 0
             cmd_vel_pub.publish(self.twist)
         callback_state = 0
+        current_shape = get_shape(numpy.argmax(shape_id_counts["task3"]))
+        rospy.loginfo(str(current_shape))
+        if (current_shape == chosen_shape) and not shape_found:
+            shape_found = True
+            wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
+            while rospy.Time.now()<wait_time_sound:
+                sound_pub.publish(Sound(Sound.BUTTON))
+        
         wait_time = rospy.Time.now() + rospy.Duration(1.4)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = -1.5
             cmd_vel_pub.publish(self.twist)
+
         stop = False
-        global shape_id_counts
-        print shape_id_counts["task3"]
+        stop_count = -1
         return 'go'
 
 # follower = Follower()

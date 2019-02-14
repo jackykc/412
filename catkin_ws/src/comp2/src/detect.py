@@ -4,7 +4,7 @@ from sensor_msgs.msg import Image
 import cv2, cv_bridge, numpy
 
 global bridge, action
-action = 3
+action = 1
 # 0 1 2 3
 
 
@@ -15,6 +15,10 @@ def detect_1(image):
     lower_red = numpy.array([130, 132,  110])
     upper_red = numpy.array([180, 255, 255])
     
+
+    # lower_red = numpy.array([0, 205,  38])
+    # upper_red = numpy.array([180, 255, 125])
+
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
 
     ret, thresh = cv2.threshold(mask_red, 127, 255, 0)
@@ -24,7 +28,7 @@ def detect_1(image):
     
     im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     contours = list(filter(lambda c: c.size > 100, contours))
-    print len(contours)
+
     cv2.drawContours(image, contours, -1, (0, 0, 255), 3)
 
     masked = cv2.bitwise_and(image, image, mask=mask_red)
@@ -69,9 +73,10 @@ def detect_2(image):
     
 def detect_3(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    lower_red = numpy.array([130, 132,  110])
-    upper_red = numpy.array([200, 256, 256])
-    
+
+    lower_red = numpy.array([0, 205,  38])
+    upper_red = numpy.array([180, 255, 125])
+
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
 
     # ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
