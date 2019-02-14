@@ -8,7 +8,24 @@ import cv2, cv_bridge, numpy
 import smach
 import smach_ros
 
+
 global stop, donot_check_time, image_pub, err, cmd_vel_pub, bridge, stop_count, line_lost, led_pub1, led_pub2
+'''
+shape_id
+0 triangle
+1 square
+2 circle
+'''
+global verticies_green, object_counts
+shape_id_counts = {
+    "task2": numpy.asarray([0, 0, 0]),
+    "task3": numpy.asarray([0 ,0 ,0])
+ } # green, red (task 2 and 3)
+object_counts = {
+    "task1": numpy.asarray([0, 0, 0]), # task 1 [1obj, 2obj, 3obj]
+    "task2": numpy.asarray([0, 0, 0])  # task 2 [1obj, 2obj, 3obj]
+} # task 1 and 2
+
 line_lost = False
 stop_count = 0
 rospy.init_node('follower')
@@ -16,10 +33,6 @@ err = 0
 
 led_pub1 = rospy.Publisher('/mobile_base/commands/led1', Led, queue_size=1)
 led_pub2 = rospy.Publisher('/mobile_base/commands/led2', Led, queue_size=1)
-# while True:
-#     led_pub.publish(Led(Led.ORANGE))
-
-# exit()
 
 global start, callback_state
 start = True
@@ -60,10 +73,18 @@ def follow_line(image):
         stop = True
         donot_check_time = rospy.Time.now()+rospy.Duration(5)
     if stop:
+<<<<<<< HEAD
         cx = int(M['m10']/M['m00'])
         cy = int(M['m01']/M['m00'])
         cv2.circle(image, (cx, cy), 20, (0,255,0), -1)
         image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
+=======
+        if M['m00'] > 0: 
+            cx = int(M['m10']/M['m00'])
+            cy = int(M['m01']/M['m00'])
+            cv2.circle(image, (cx, cy), 20, (0,255,0), -1)
+            image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
+>>>>>>> 7a781949a6981e400c7b9258f3e0f91e9f5b9621
         return
 
     # masked = cv2.bitwise_and(image, image, mask=mask)
@@ -86,11 +107,26 @@ def follow_line(image):
         line_lost = True
     image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
 
+def display_led(count):
+    global led_pub1, led_pub2
+    if count == 0:
+        led_pub1.publish(Led(Led.BLACK))
+        led_pub2.publish(Led(Led.BLACK))
+    elif count == 1:
+        led_pub1.publish(Led(Led.BLACK))
+        led_pub2.publish(Led(Led.ORANGE))
+    elif count == 2:
+        led_pub1.publish(Led(Led.ORANGE))
+        led_pub2.publish(Led(Led.BLACK))
+    elif count == 3:
+        led_pub1.publish(Led(Led.ORANGE))
+        led_pub2.publish(Led(Led.ORANGE))
+
 def detect_1(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
     lower_red = numpy.array([130, 132,  110])
-    upper_red = numpy.array([180, 256, 256])
+    upper_red = numpy.array([200, 256, 256])
     
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
 
@@ -101,18 +137,15 @@ def detect_1(image):
     
     im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     contours = list(filter(lambda c: c.size > 100, contours))
-    print len(contours)
     cv2.drawContours(image, contours, -1, (0, 0, 255), 3)
 
     masked = cv2.bitwise_and(image, image, mask=mask_red)
 
-    return len(contours)
+    count = clamp_count(len(contours))
+    return masked, count
 
 def detect_2(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-    # lower_red = numpy.array([0, 205,  93])
-    # upper_red = numpy.array([0, 255, 255])
     lower_red = numpy.array([130, 132,  110])
     upper_red = numpy.array([200, 256, 256])
     lower_green = numpy.array([44, 54,  63])
@@ -123,8 +156,8 @@ def detect_2(image):
 
     ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
 
-    thresh_red = mask_red#thresh_red
-    thresh_green = mask_green
+    # thresh_red = mask_red
+    thresh_green = mask_green # did not bother doing threshold on green
 
     kernel = numpy.ones((3,3),numpy.float32)/25
     thresh_red = cv2.filter2D(thresh_red,-1,kernel)
@@ -135,7 +168,7 @@ def detect_2(image):
     contours_green = list(filter(lambda c: c.size > 70, contours_green))
     contours_red = list(filter(lambda c: c.size > 40, contours_red))
     
-    print str(len(contours_red)) + " " + str(len(contours_green))
+    vertices = get_vertices(contours_green)
 
     cv2.drawContours(image, contours_green, -1, (0,255,0), 3)
     cv2.drawContours(image, contours_red, -1, (0,0,255), 3)
@@ -143,38 +176,101 @@ def detect_2(image):
     mask = cv2.bitwise_or(mask_red, mask_green)
     masked = cv2.bitwise_and(image, image, mask=mask)
 
-    return len(contours_red) + 1
+    count = clamp_count(len(contours_red) + 1)
+    return masked, count, get_shape_id(vertices)
+    
 def detect_3(image):
-    return 100
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    lower_red = numpy.array([130, 132,  110])
+    upper_red = numpy.array([200, 256, 256])
+    
+    mask_red = cv2.inRange(hsv, lower_red, upper_red)
 
+    # ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
+    thresh_red = mask_red
+
+    kernel = numpy.ones((3,3),numpy.float32)/25
+    thresh_red = cv2.filter2D(thresh_red,-1,kernel)
+
+    _, contours_red, hierarchy = cv2.findContours(thresh_red, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
+    contours_red = list(filter(lambda c: c.size > 40, contours_red))
+    
+    vertices = get_vertices(contours_red)
+
+    cv2.drawContours(image, contours_red, -1, (0,0,255), 3)
+
+    
+    mask = mask_red
+    masked = cv2.bitwise_and(image, image, mask=mask)
+
+    count = clamp_count(len(contours_red))
+    return masked, count, get_shape_id(vertices)
+    
+
+def clamp_count(count):
+    if count < 1:
+        return 1
+    elif count > 3:
+        return 3
+    else:
+        return count
+
+def get_shape_id(vertices):
+    if vertices == 3:
+        id = 0
+    elif vertices == 4:
+        id = 1
+    else:
+        id = 2
+
+    return id
+
+def get_shape(shape_id):
+    if shape_id == 0:
+        shape = "triangle"
+    elif shape_id == 1:
+        shape = "square"
+    else:
+        shape = "circle"
+
+    return shape
+
+def get_vertices(contours):
+    approx = []
+    areas = [cv2.contourArea(c) for c in contours]
+    if len(areas):
+        max_index = numpy.argmax(areas)
+        largest_contour = contours[max_index]
+
+        peri = cv2.arcLength(largest_contour, True)
+        approx = cv2.approxPolyDP(largest_contour, 0.04 * peri, True)
+    return len(approx)
 
 def image_callback(msg):
-    global callback_state, led_pub1, led_pub2
+    global callback_state
+    global shape_id_counts, object_counts
     image = bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
     if callback_state == 0:
         follow_line(image)
     elif callback_state == 1:
-        count = detect_1(image)
-        print str(count) + str(" 1")
-        if count == 0:
-            led_pub1.publish(Led(Led.BLACK))
-            led_pub2.publish(Led(Led.BLACK))
-        elif count == 1:
-            led_pub1.publish(Led(Led.BLACK))
-            led_pub2.publish(Led(Led.ORANGE))
-        elif count == 2:
-            led_pub1.publish(Led(Led.ORANGE))
-            led_pub2.publish(Led(Led.BLACK))
-        elif count == 3:
-            led_pub1.publish(Led(Led.ORANGE))
-            led_pub2.publish(Led(Led.ORANGE))
-    elif callback_state == 2:
-        count = detect_2(image)
-        print str(count) + str(" 2")
+        image, count = detect_1(image)
+        print count
+        object_counts["task1"][count-1] += 1 # count -1 as index starts at 0
+        image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
+        # display_led(count)
+    elif callback_state == 2: # reset object_counts in the state
+        image, count, shape_id = detect_2(image)
+        shape_id_counts[verticies] += 1
+        object_counts["task2"][count-1] += 1
+        shape_id_counts["task2"][shape_id] += 1
+        image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
+        # display_led(count)
     elif callback_state == 3:
-        count = detect_3(image)
-        print str(count) + str(" 3")
-    
+        image, count, shape_id = detect_3(image)
+        shape_id_counts["task3"][shape_id] += 1
+        image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
+
 rospy.Subscriber("/joy", Joy, joy_callback)
 bridge = cv_bridge.CvBridge()
 image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, image_callback)
@@ -188,12 +284,10 @@ class Go(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['stop'])
         self.twist = Twist()
+        print "start"
     def execute(self, data):
         global stop, err, cmd_vel_pub, stop_count, start
         while not rospy.is_shutdown():
-            while not start:
-                continue
-
             if stop:
                 stop = False
                 return 'stop'
@@ -241,21 +335,32 @@ class Task1(smach.State):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub, callback_state
-        wait_time = rospy.Time.now() + rospy.Duration(1)
+        global stop, cmd_vel_pub, callback_state, object_counts
+
+        wait_time = rospy.Time.now() + rospy.Duration(3)
+        while rospy.Time.now()<wait_time:
+            self.twist.linear.x = 0.2
+            self.twist.angular.z = 0
+            cmd_vel_pub.publish(self.twist)
+
+        wait_time = rospy.Time.now() + rospy.Duration(1.6)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 1.5
             cmd_vel_pub.publish(self.twist)
-        wait_time = rospy.Time.now() + rospy.Duration(1)
+        wait_time = rospy.Time.now() + rospy.Duration(20)
         callback_state = 1
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 0
             cmd_vel_pub.publish(self.twist)
         callback_state = 0
-        wait_time = rospy.Time.now() + rospy.Duration(1)
+        wait_time = rospy.Time.now() + rospy.Duration(1.6)
+        object_count = numpy.argmax(object_counts["task1"]) + 1
+        print "task1" + str(object_count)
+        exit()
         while rospy.Time.now()<wait_time:
+            display_led(object_count)
             self.twist.linear.x = 0
             self.twist.angular.z = -1.5
             cmd_vel_pub.publish(self.twist)
@@ -268,7 +373,8 @@ class Task2(smach.State):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub, err,  line_lost, callback_state
+        global stop, cmd_vel_pub, err,  line_lost, callback_state, object_counts
+
         print 'in task 2'
         wait_time = rospy.Time.now() + rospy.Duration(1.5)
         while rospy.Time.now()<wait_time:
@@ -297,7 +403,9 @@ class Task2(smach.State):
         callback_state = 0
         # turn back
         wait_time = rospy.Time.now() + rospy.Duration(2.8)
+        object_count = numpy.argmax(object_counts["task2"]) + 1
         while rospy.Time.now()<wait_time:
+            display_led(object_count)
             self.twist.linear.x = 0
             self.twist.angular.z = 1.5
             cmd_vel_pub.publish(self.twist)
@@ -396,6 +504,7 @@ with sm:
                  transitions={'go':'GO'})
     smach.StateMachine.add('TASK3', Task3(), 
                  transitions={'go':'GO'})
+
 # Create and start the introspection server
 sis = smach_ros.IntrospectionServer('server_name', sm, '/SM_ROOT')
 sis.start()
