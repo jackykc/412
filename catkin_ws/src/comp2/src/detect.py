@@ -4,15 +4,16 @@ from sensor_msgs.msg import Image
 import cv2, cv_bridge, numpy
 
 global bridge, action
-action = 2
+action = 1
 # 0 1 2 3
+
 
 
 def detect_1(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
     lower_red = numpy.array([130, 132,  110])
-    upper_red = numpy.array([180, 256, 256])
+    upper_red = numpy.array([180, 255, 255])
     
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
 
@@ -28,13 +29,11 @@ def detect_1(image):
 
     masked = cv2.bitwise_and(image, image, mask=mask_red)
 
-    return masked, len(contours)
+    count = clamp_count(len(contours))
+    return masked, count
 
 def detect_2(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-    # lower_red = numpy.array([0, 205,  93])
-    # upper_red = numpy.array([0, 255, 255])
     lower_red = numpy.array([130, 132,  110])
     upper_red = numpy.array([200, 256, 256])
     lower_green = numpy.array([44, 54,  63])
@@ -45,8 +44,8 @@ def detect_2(image):
 
     ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
 
-    thresh_red = mask_red#thresh_red
-    thresh_green = mask_green
+    # thresh_red = mask_red
+    thresh_green = mask_green # did not bother doing threshold on green
 
     kernel = numpy.ones((3,3),numpy.float32)/25
     thresh_red = cv2.filter2D(thresh_red,-1,kernel)
@@ -57,7 +56,7 @@ def detect_2(image):
     contours_green = list(filter(lambda c: c.size > 70, contours_green))
     contours_red = list(filter(lambda c: c.size > 40, contours_red))
     
-    # print str(len(contours_red)) + " " + str(len(contours_green))
+    vertices = get_vertices(contours_green)
 
     cv2.drawContours(image, contours_green, -1, (0,255,0), 3)
     cv2.drawContours(image, contours_red, -1, (0,0,255), 3)
@@ -65,29 +64,89 @@ def detect_2(image):
     mask = cv2.bitwise_or(mask_red, mask_green)
     masked = cv2.bitwise_and(image, image, mask=mask)
 
-    if len(contours_green):
-        get_shape(contours_green[0])
-
-    return masked, len(contours_red)
+    count = clamp_count(len(contours_red) + 1)
+    return masked, count, get_shape_id(vertices)
+    
 def detect_3(image):
-    return 12
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    lower_red = numpy.array([130, 132,  110])
+    upper_red = numpy.array([200, 256, 256])
+    
+    mask_red = cv2.inRange(hsv, lower_red, upper_red)
 
-def get_shape(c):
-        # initialize the shape name and approximate the contour
-    shape = "unidentified"
-    peri = cv2.arcLength(c, True)
-    approx = cv2.approxPolyDP(c, 0.04 * peri, True)
-    print len(approx)
+    # ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
+    thresh_red = mask_red
+
+    kernel = numpy.ones((3,3),numpy.float32)/25
+    thresh_red = cv2.filter2D(thresh_red,-1,kernel)
+
+    _, contours_red, hierarchy = cv2.findContours(thresh_red, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    
+    contours_red = list(filter(lambda c: c.size > 40, contours_red))
+    
+    vertices = get_vertices(contours_red)
+
+    cv2.drawContours(image, contours_red, -1, (0,0,255), 3)
+
+    
+    mask = mask_red
+    masked = cv2.bitwise_and(image, image, mask=mask)
+
+    count = clamp_count(len(contours_red))
+    return masked, count, get_shape_id(vertices)
+    
+
+def clamp_count(count):
+    if count < 1:
+        return 1
+    elif count > 3:
+        return 3
+    else:
+        return count
+
+def get_shape_id(vertices):
+    if vertices == 3:
+        id = 0
+    elif vertices == 4:
+        id = 1
+    else:
+        id = 2
+
+    return id
+
+def get_shape(shape_id):
+    if shape_id == 0:
+        shape = "triangle"
+    elif shape_id == 1:
+        shape = "square"
+    else:
+        shape = "circle"
+
+    return shape
+
+def get_vertices(contours):
+    approx = []
+    areas = [cv2.contourArea(c) for c in contours]
+    if len(areas):
+        max_index = numpy.argmax(areas)
+        largest_contour = contours[max_index]
+
+        peri = cv2.arcLength(largest_contour, True)
+        approx = cv2.approxPolyDP(largest_contour, 0.04 * peri, True)
+    return len(approx)
 
 def image_callback(msg):
     image = bridge.imgmsg_to_cv2(msg,desired_encoding='bgr8')
 
     if (action == 1):
         image, count = detect_1(image)
+        print str(count)
     elif (action == 2):
-        image, count = detect_2(image)
+        image, count, shape_id = detect_2(image)
+        print str(count) + " " + str(get_shape(shape_id))
     elif (action == 3):
-        print 3
+        image, count, shape_id = detect_3(image)
+        print str(count) + " " + str(get_shape(shape_id))
 
     image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
 
