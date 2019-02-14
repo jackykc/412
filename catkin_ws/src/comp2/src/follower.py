@@ -63,7 +63,7 @@ def follow_line(image):
         cx = int(M['m10']/M['m00'])
         cy = int(M['m01']/M['m00'])
         cv2.circle(image, (cx, cy), 20, (0,255,0), -1)
-        image_pub.publish(self.bridge.cv2_to_imgmsg(image, encoding='bgr8'))
+        image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
         return
 
     # masked = cv2.bitwise_and(image, image, mask=mask)
@@ -259,7 +259,7 @@ class Task1(smach.State):
             self.twist.linear.x = 0
             self.twist.angular.z = -1.5
             cmd_vel_pub.publish(self.twist)
-        exit()
+        # exit()
         return 'go'
 
 class Task2(smach.State):
@@ -356,7 +356,7 @@ class Task3(smach.State):
                 self.twist.angular.z = -1.5
                 cmd_vel_pub.publish(self.twist)
         # check last one
-        wait_time = rospy.Time.now() + rospy.Duration(2)
+        wait_time = rospy.Time.now() + rospy.Duration(2.5)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0.2
             self.twist.angular.z = 0
