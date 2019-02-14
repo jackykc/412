@@ -16,7 +16,7 @@ shape_id
 1 square
 2 circle
 '''
-global verticies_green, object_counts
+global shape_id_counts, object_counts
 shape_id_counts = {
     "task2": numpy.asarray([0, 0, 0]),
     "task3": numpy.asarray([0 ,0 ,0])
@@ -73,18 +73,11 @@ def follow_line(image):
         stop = True
         donot_check_time = rospy.Time.now()+rospy.Duration(5)
     if stop:
-<<<<<<< HEAD
-        cx = int(M['m10']/M['m00'])
-        cy = int(M['m01']/M['m00'])
-        cv2.circle(image, (cx, cy), 20, (0,255,0), -1)
-        image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
-=======
         if M['m00'] > 0: 
             cx = int(M['m10']/M['m00'])
             cy = int(M['m01']/M['m00'])
             cv2.circle(image, (cx, cy), 20, (0,255,0), -1)
             image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
->>>>>>> 7a781949a6981e400c7b9258f3e0f91e9f5b9621
         return
 
     # masked = cv2.bitwise_and(image, image, mask=mask)
@@ -206,7 +199,7 @@ def detect_3(image):
 
     count = clamp_count(len(contours_red))
     return masked, count, get_shape_id(vertices)
-    
+        
 
 def clamp_count(count):
     if count < 1:
@@ -261,7 +254,6 @@ def image_callback(msg):
         # display_led(count)
     elif callback_state == 2: # reset object_counts in the state
         image, count, shape_id = detect_2(image)
-        shape_id_counts[verticies] += 1
         object_counts["task2"][count-1] += 1
         shape_id_counts["task2"][shape_id] += 1
         image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
@@ -330,37 +322,63 @@ class Stop(smach.State):
             cmd_vel_pub.publish(self.twist)
         return 'go'
 
+# class Task1(smach.State):
+#     def __init__(self):
+#         smach.State.__init__(self, outcomes=['go'])
+#         self.twist = Twist()
+#     def execute(self, data):
+#         global stop, cmd_vel_pub, callback_state, object_counts
+
+#         wait_time = rospy.Time.now() + rospy.Duration(3)
+#         while rospy.Time.now()<wait_time:
+#             self.twist.linear.x = 0.2
+#             self.twist.angular.z = 0
+#             cmd_vel_pub.publish(self.twist)
+
+#         wait_time = rospy.Time.now() + rospy.Duration(1.6)
+#         while rospy.Time.now()<wait_time:
+#             self.twist.linear.x = 0
+#             self.twist.angular.z = 1.5
+#             cmd_vel_pub.publish(self.twist)
+#         wait_time = rospy.Time.now() + rospy.Duration(20)
+#         callback_state = 1
+#         while rospy.Time.now()<wait_time:
+#             self.twist.linear.x = 0
+#             self.twist.angular.z = 0
+#             cmd_vel_pub.publish(self.twist)
+#         callback_state = 0
+#         wait_time = rospy.Time.now() + rospy.Duration(1.6)
+#         object_count = numpy.argmax(object_counts["task1"]) + 1
+#         print "task1" + str(object_count)
+#         exit()
+#         while rospy.Time.now()<wait_time:
+#             display_led(object_count)
+#             self.twist.linear.x = 0
+#             self.twist.angular.z = -1.5
+#             cmd_vel_pub.publish(self.twist)
+#         # exit()
+#         return 'go'
+
 class Task1(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub, callback_state, object_counts
-
-        wait_time = rospy.Time.now() + rospy.Duration(3)
-        while rospy.Time.now()<wait_time:
-            self.twist.linear.x = 0.2
-            self.twist.angular.z = 0
-            cmd_vel_pub.publish(self.twist)
-
-        wait_time = rospy.Time.now() + rospy.Duration(1.6)
+        global stop, cmd_vel_pub, callback_state
+        wait_time = rospy.Time.now() + rospy.Duration(1)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 1.5
             cmd_vel_pub.publish(self.twist)
-        wait_time = rospy.Time.now() + rospy.Duration(20)
+        wait_time = rospy.Time.now() + rospy.Duration(1)
         callback_state = 1
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 0
             cmd_vel_pub.publish(self.twist)
         callback_state = 0
-        wait_time = rospy.Time.now() + rospy.Duration(1.6)
-        object_count = numpy.argmax(object_counts["task1"]) + 1
-        print "task1" + str(object_count)
-        exit()
+        wait_time = rospy.Time.now() + rospy.Duration(1)
         while rospy.Time.now()<wait_time:
-            display_led(object_count)
             self.twist.linear.x = 0
             self.twist.angular.z = -1.5
             cmd_vel_pub.publish(self.twist)
@@ -427,6 +445,8 @@ class Task2(smach.State):
             self.twist.angular.z = 1.5
             cmd_vel_pub.publish(self.twist)
         stop = False
+        print shape_id_counts["task2"]
+
         return 'go'
 
 class Task3(smach.State):
@@ -434,7 +454,7 @@ class Task3(smach.State):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub, callback_state
+        global stop, cmd_vel_pub, callback_state, object_counts
         for i in range(0, 2):
             # track the line
             stop = False
@@ -450,7 +470,7 @@ class Task3(smach.State):
                 self.twist.linear.x = 0
                 self.twist.angular.z = 1.5
                 cmd_vel_pub.publish(self.twist)
-            wait_time = rospy.Time.now() + rospy.Duration(1)
+            wait_time = rospy.Time.now() + rospy.Duration(30)
             callback_state = 3
             while rospy.Time.now()<wait_time:
                 # stop
@@ -464,7 +484,7 @@ class Task3(smach.State):
                 self.twist.angular.z = -1.5
                 cmd_vel_pub.publish(self.twist)
         # check last one
-        wait_time = rospy.Time.now() + rospy.Duration(2.5)
+        wait_time = rospy.Time.now() + rospy.Duration(2.7)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0.2
             self.twist.angular.z = 0
@@ -475,7 +495,7 @@ class Task3(smach.State):
             self.twist.linear.x = 0
             self.twist.angular.z = 1.5
             cmd_vel_pub.publish(self.twist)
-        wait_time = rospy.Time.now() + rospy.Duration(1)
+        wait_time = rospy.Time.now() + rospy.Duration(30)
         callback_state = 3
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
@@ -488,6 +508,8 @@ class Task3(smach.State):
             self.twist.angular.z = -1.5
             cmd_vel_pub.publish(self.twist)
         stop = False
+        global shape_id_counts
+        print shape_id_counts["task3"]
         return 'go'
 
 # follower = Follower()
