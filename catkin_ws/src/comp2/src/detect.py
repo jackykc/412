@@ -4,7 +4,7 @@ from sensor_msgs.msg import Image
 import cv2, cv_bridge, numpy
 
 global bridge, action
-action = 1
+action = 3
 # 0 1 2 3
 
 
@@ -78,7 +78,10 @@ def detect_3(image):
     upper_red = numpy.array([180, 255, 125])
 
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
+    h, w, d = image.shape
 
+    mask_red[:,0:w/5] = 0
+    mask_red[:,4*w/5:w] = 0
     # ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
     thresh_red = mask_red
 
