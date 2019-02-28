@@ -4,7 +4,7 @@ from sensor_msgs.msg import Image
 import cv2, cv_bridge, numpy
 
 global bridge, action
-action = 1
+action = 3
 # 0 1 2 3
 
 
