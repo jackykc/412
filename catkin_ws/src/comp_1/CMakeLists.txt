@@ -272,6 +272,14 @@ endif()
 ##       GPU       ##
 #####################
 
+
+#if(${CUDA_SUCCESS})
+if(FALSE)
+ 
+  ###################
+  ## Yolo Detector ##
+  ###################
+
 # file(GLOB ...) should not be used here as it prevents CMake from detecting changes,
 # and thus rebuilding, when any of the files are modified or removed
 set(DARKNET_SOURCE
@@ -320,10 +328,6 @@ set(DARKNET_SOURCE
   ${DARKNET_PATH}/src/yolo_layer.c
 )
 
-if(${CUDA_SUCCESS})
-  ###################
-  ## Yolo Detector ##
-  ###################
 
   set(DARKNET_KERNELS
     ${DARKNET_PATH}/src/activation_kernels.cu
