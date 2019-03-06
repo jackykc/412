@@ -1,4 +1,6 @@
 <launch>
+    <include file="$(find demo5)/launch/3dsensor.launch"/>
+
 	<arg name="marker_size" default="19.9" />
 	<arg name="max_new_marker_error" default="0.08" />
 	<arg name="max_track_error" default="0.2" />
