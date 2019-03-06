@@ -7,10 +7,14 @@ from ar_track_alvar_msgs.msg import AlvarMarkers
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
 # from odom_msgs.msg import 
 import actionlib
-
-import cv2, cv_bridge, numpy
+import tf
+import cv2, cv_bridge
+import numpy as np
 import smach
 import smach_ros
+
+from tf.transformations import decompose_matrix, euler_from_quaternion
+from ros_numpy import numpify
 
 global current_marker_pose
 global current_pose
@@ -85,10 +89,28 @@ class NavigateGoal(smach.State):
         global current_pose
         # rospy.loginfo("VisualServo")
         print "navigate"
-        # while not rospy.is_shutdown():
+        while not rospy.is_shutdown():
 
             # print current_marker_pose
-            # if (current_marker_pose is not None) and (current_marker_pose.position.x > 1.3):
+            if (current_marker_pose is not None) and (current_marker_pose.position.x > 1.3):
+                # pose = numpify(pose_msg) 
+                # pose.matmul(...)
+                # __, __, angles, translate, __ = decompose_matrix(pose)
+                '''
+                (trans1, rot1) = tf.lookupTransform(current_marker_pose, current_pose, t)
+                trans1_mat = tf.transformations.translation_matrix(trans1)
+                rot1_mat   = tf.transformations.quaternion_matrix(rot1)
+                mat1 = numpy.dot(trans1_mat, rot1_mat)
+
+                (trans2, rot2) = tf.lookupTransform(l4, l3, t)
+                trans2_mat = tf.transformations.translation_matrix(trans2)
+                rot2_mat    = tf.transformations.quaternion_matrix(rot2)
+                mat2 = numpy.dot(trans2_mat, rot2_mat)
+
+                mat3 = numpy.dot(mat1, mat2)
+                trans3 = tf.transformations.translation_from_matrix(mat3)
+                rot3 = tf.transformations.quaternion_from_matrix(mat3)
+                '''
             #     print current_marker_pose.position.x
             #     self.twist.linear.x = 0.1
             #     self.twist.angular.z = current_marker_pose.position.y * 2
