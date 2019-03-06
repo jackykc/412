@@ -1,0 +1,5 @@
+<launch>
+    <node respawn="true" pkg="demo5" type="part1.py" name="part1" >
+    </node>
+    <node pkg="rqt_gui" name="rqt_gui" type="rqt_gui"></node>
+</launch>
