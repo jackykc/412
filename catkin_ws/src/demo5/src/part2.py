@@ -14,7 +14,7 @@ import smach
 import smach_ros
 
 from tf.transformations import decompose_matrix, euler_from_quaternion
-from ros_numpy import numpify, numpy_to_pose
+from ros_numpy import numpify, geometry
 
 global current_marker_pose
 global current_pose
@@ -68,6 +68,11 @@ class Turn(smach.State):
         self.twist.angular.z = 0.4
         
     def execute(self, data):
+        global finished_marker_ids
+        global current_marker_id
+        global current_marker_pose
+        current_marker_id = None
+        current_marker_pose = None
         while not rospy.is_shutdown():
             cmd_vel_pub.publish(self.twist)
             if current_marker_pose is not None:
@@ -75,7 +80,7 @@ class Turn(smach.State):
 
 class VisualServo(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['navigate'])
+        smach.State.__init__(self, outcomes=['navigate', 'start'])
         self.twist = Twist()
         print "init"
     def execute(self, data):
@@ -85,7 +90,7 @@ class VisualServo(smach.State):
         reached = False
         while not rospy.is_shutdown():
             # print current_marker_pose
-            if (current_marker_pose is not None) and (current_marker_pose.position.x > 0.8):
+            if (current_marker_pose is not None) and (current_marker_pose.position.x > 1):
                 print current_marker_pose.position.x
                 self.twist.linear.x = 0.1
                 direction = current_marker_pose.position.y > 0
@@ -93,7 +98,7 @@ class VisualServo(smach.State):
                     direction = 1
                 else:
                     direction = -1
-                self.twist.angular.z = direction * 0.6
+                self.twist.angular.z = direction * 0.3
                 cmd_vel_pub.publish(self.twist)
                 reached = True
             elif reached:
@@ -115,12 +120,13 @@ class NavigateGoal(smach.State):
             np_current_pose = numpify(current_pose)
             np_current_marker_pose = numpify(current_marker_pose)
             np_goal_pose = np.matmul(np_current_pose, np_current_marker_pose)
-            temp_goal_pose = numpy_to_pose(np_goal_pose)
+            temp_goal_pose = geometry.numpy_to_pose(np_goal_pose)
+            temp_goal_pose.position.x -= 0.1
 
-
+            print temp_goal_pose
             goal_pose = MoveBaseGoal()
             goal_pose.target_pose.header.frame_id = 'odom'
-            goal_pose.pose = temp_goal_pose
+            goal_pose.target_pose.pose = temp_goal_pose
             goal_pose.target_pose.pose.position.z = 0.0
             
             '''
@@ -175,7 +181,7 @@ with sm:
     smach.StateMachine.add('TURN', Turn(), 
                  transitions={'servo':'SERVO'})
     smach.StateMachine.add('SERVO', VisualServo(), 
-                 transitions={'navigate':'GOAL'})
+                 transitions={'navigate':'GOAL', 'start': 'START'})
     smach.StateMachine.add('GOAL', NavigateGoal(), 
                  transitions={'start':'START'})
     smach.StateMachine.add('START', NavigateStart(), 
