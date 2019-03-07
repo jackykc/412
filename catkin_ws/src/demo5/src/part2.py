@@ -14,25 +14,40 @@ import smach
 import smach_ros
 
 from tf.transformations import decompose_matrix, euler_from_quaternion
-from ros_numpy import numpify
+from ros_numpy import numpify, numpy_to_pose
 
 global current_marker_pose
 global current_pose
+global initial_pose
+global finished_marker_ids
+global current_marker_id
+current_marker_id = None
+finished_marker_ids = []
 current_marker_pose = None
 current_pose = None
+initial_pose = None
 
 def odom_callback(msg):
     global current_pose
+    global initial_pose
     current_pose = msg.pose.pose
-
+    if initial_pose is None:
+        initial_pose = current_pose
 def img_callback(msg):
     return
 
 def marker_cb(msg):
     global current_marker_pose
+    global finished_marker_ids
+    global current_marker_id
     # print msg.markers
     if len(msg.markers):
-        current_marker_pose = msg.markers[0].pose.pose
+        for marker in msg.markers:
+            if marker.id in finished_marker_ids:
+                continue
+            if current_marker_id is None:
+                 current_marker_id = marker.id
+            current_marker_pose = marker.pose.pose
         # print current_marker_pose
 
 rospy.init_node('part2')
@@ -43,23 +58,20 @@ marker_sub = rospy.Subscriber('/ar_pose_marker', AlvarMarkers, marker_cb)
 cmd_vel_pub = rospy.Publisher("cmd_vel_mux/input/teleop", Twist, queue_size=1)
 
 client = actionlib.SimpleActionClient('move_base', MoveBaseAction)  # <3>
-# client.wait_for_server()
-
-
+client.wait_for_server()
 
 class Turn(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['servo'])
         self.twist = Twist()
         self.twist.linear.x = 0
-        self.twist.angular.z = 0.3
+        self.twist.angular.z = 0.4
         
     def execute(self, data):
         while not rospy.is_shutdown():
-            continue
-            # cmd_vel_pub.publish(self.twist)
-            # if current_marker_pose is not None:
-            #     return 'servo'
+            cmd_vel_pub.publish(self.twist)
+            if current_marker_pose is not None:
+                return 'servo'
 
 class VisualServo(smach.State):
     def __init__(self):
@@ -70,13 +82,22 @@ class VisualServo(smach.State):
         global current_marker_pose
         # rospy.loginfo("VisualServo")
         print "start"
+        reached = False
         while not rospy.is_shutdown():
             # print current_marker_pose
-            if (current_marker_pose is not None) and (current_marker_pose.position.x > 1.3):
+            if (current_marker_pose is not None) and (current_marker_pose.position.x > 0.8):
                 print current_marker_pose.position.x
                 self.twist.linear.x = 0.1
-                self.twist.angular.z = current_marker_pose.position.y * 2
+                direction = current_marker_pose.position.y > 0
+                if direction: 
+                    direction = 1
+                else:
+                    direction = -1
+                self.twist.angular.z = direction * 0.6
                 cmd_vel_pub.publish(self.twist)
+                reached = True
+            elif reached:
+                return 'navigate'
         return 'navigate'
 
 class NavigateGoal(smach.State):
@@ -89,67 +110,63 @@ class NavigateGoal(smach.State):
         global current_pose
         # rospy.loginfo("VisualServo")
         print "navigate"
-        while not rospy.is_shutdown():
+        
+        if (current_marker_pose is not None and current_pose is not None):
+            np_current_pose = numpify(current_pose)
+            np_current_marker_pose = numpify(current_marker_pose)
+            np_goal_pose = np.matmul(np_current_pose, np_current_marker_pose)
+            temp_goal_pose = numpy_to_pose(np_goal_pose)
 
-            # print current_marker_pose
-            if (current_marker_pose is not None) and (current_marker_pose.position.x > 1.3):
-                # pose = numpify(pose_msg) 
-                # pose.matmul(...)
-                # __, __, angles, translate, __ = decompose_matrix(pose)
-                '''
-                (trans1, rot1) = tf.lookupTransform(current_marker_pose, current_pose, t)
-                trans1_mat = tf.transformations.translation_matrix(trans1)
-                rot1_mat   = tf.transformations.quaternion_matrix(rot1)
-                mat1 = numpy.dot(trans1_mat, rot1_mat)
 
-                (trans2, rot2) = tf.lookupTransform(l4, l3, t)
-                trans2_mat = tf.transformations.translation_matrix(trans2)
-                rot2_mat    = tf.transformations.quaternion_matrix(rot2)
-                mat2 = numpy.dot(trans2_mat, rot2_mat)
+            goal_pose = MoveBaseGoal()
+            goal_pose.target_pose.header.frame_id = 'odom'
+            goal_pose.pose = temp_goal_pose
+            goal_pose.target_pose.pose.position.z = 0.0
+            
+            '''
+            goal_pose.target_pose.pose.position.x = np_goal_pose[0][3]
+            goal_pose.target_pose.pose.position.y = np_goal_pose[1][3]
+            goal_pose.target_pose.pose.position.z = 0.0
+            goal_pose.target_pose.pose.orientation.x = 0#current_marker_pose.orientation.x
+            goal_pose.target_pose.pose.orientation.y = 0#current_marker_pose.orientation.y
+            goal_pose.target_pose.pose.orientation.z = current_pose.orientation.z
+            goal_pose.target_pose.pose.orientation.w = current_pose.orientation.w
+            '''
 
-                mat3 = numpy.dot(mat1, mat2)
-                trans3 = tf.transformations.translation_from_matrix(mat3)
-                rot3 = tf.transformations.quaternion_from_matrix(mat3)
-                '''
-            #     print current_marker_pose.position.x
-            #     self.twist.linear.x = 0.1
-            #     self.twist.angular.z = current_marker_pose.position.y * 2
-            #     cmd_vel_pub.publish(self.twist)
+            # print np_goal_pose
+            print goal_pose
+            print current_pose
+            global finished_marker_ids
+            global current_marker_id
+            client.send_goal(goal_pose)
+            client.wait_for_result()
+
         return 'start'
-'''
-class NavigateGoal(smach.state):
+
+class NavigateStart(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['start'])
-        self.twist = Twist()
+        smach.State.__init__(self, outcomes=['turn', 'finish'])
     def execute(self, data):
         global current_marker_pose
         global current_pose
-        print "navigate goal"
-        # goal_pose = MoveBaseGoal()
-        # goal_pose.target_pose.header.frame_id = 'odom'
-        # goal_pose.target_pose.pose = current_marker_pose
-        # client.send_goal(goal)
-        # client.wait_for_result()
-
-        # goal_pose.target_pose.pose.position.x = pose[0][0]
-        # goal_pose.target_pose.pose.position.y = pose[0][1]
-        # goal_pose.target_pose.pose.position.z = pose[0][2]
-        # goal_pose.target_pose.pose.orientation.x = pose[1][0]
-        # goal_pose.target_pose.pose.orientation.y = pose[1][1]
-        # goal_pose.target_pose.pose.orientation.z = pose[1][2]
-        # goal_pose.target_pose.pose.orientation.w = pose[1][3]
-
-        return 'start'
-'''
-'''
-class NavigateStart(smach.state):
-    def __init__(self):
-        smach.State.__init__(self, outcomes=['navigate'])
-        self.twist = Twist()
-    def execute(self, data):
+        global initial_pose
+        print "start"
         
-        return 'start'
-'''
+        if (current_marker_pose is not None and current_pose is not None):
+            goal_pose = MoveBaseGoal()
+            goal_pose.target_pose.header.frame_id = 'odom'
+            goal_pose.target_pose.pose = initial_pose
+            global finished_marker_ids
+            global current_marker_id
+            print finished_marker_ids
+            print current_marker_id
+            client.send_goal(goal_pose)
+            client.wait_for_result()
+            finished_marker_ids.append(current_marker_id)
+            current_marker_id = None
+
+        return 'turn'
+
 
 # follower = Follower()
 sm = smach.StateMachine(outcomes=['finish'])
@@ -160,7 +177,9 @@ with sm:
     smach.StateMachine.add('SERVO', VisualServo(), 
                  transitions={'navigate':'GOAL'})
     smach.StateMachine.add('GOAL', NavigateGoal(), 
-                 transitions={'start':'finish'})
+                 transitions={'start':'START'})
+    smach.StateMachine.add('START', NavigateStart(), 
+                 transitions={'turn':'TURN', "finish": "finish"})
     # smach.StateMachine.add('TASK1', Task1(), 
     #              transitions={'go':'GO'})
     # smach.StateMachine.add('TASK2', Task2(), 
