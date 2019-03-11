@@ -90,7 +90,7 @@ class VisualServo(smach.State):
         reached = False
         while not rospy.is_shutdown():
             # print current_marker_pose
-            if (current_marker_pose is not None) and (current_marker_pose.position.x > 1):
+            if (current_marker_pose is not None) and (current_marker_pose.position.x > 0.4):
                 print current_marker_pose.position.x
                 self.twist.linear.x = 0.1
                 direction = current_marker_pose.position.y > 0
@@ -121,7 +121,7 @@ class NavigateGoal(smach.State):
             np_current_marker_pose = numpify(current_marker_pose)
             np_goal_pose = np.matmul(np_current_pose, np_current_marker_pose)
             temp_goal_pose = geometry.numpy_to_pose(np_goal_pose)
-            temp_goal_pose.position.x -= 0.1
+            temp_goal_pose.position.x -= 0.05
 
             print temp_goal_pose
             goal_pose = MoveBaseGoal()
