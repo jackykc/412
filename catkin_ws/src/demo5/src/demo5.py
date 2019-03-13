@@ -315,12 +315,6 @@ class Stop(smach.State):
             self.twist.linear.x = 0.2
             self.twist.angular.z = 0
             cmd_vel_pub.publish(self.twist)
-        # speed = 0.2
-        # while speed > 0:
-        #     self.twist.linear.x = 0.2
-        #     self.twist.angular.z = 0
-        #     cmd_vel_pub.publish(self.twist)
-        #     speed -= 0.00001
         # determin which it is
         if stop_count == 1:
             return 'task1'
@@ -387,12 +381,6 @@ class Task1(smach.State):
     def execute(self, data):
         global stop, cmd_vel_pub, callback_state, sound_pub
 
-        wait_time = rospy.Time.now() + rospy.Duration(1.5)
-        while rospy.Time.now()<wait_time:
-            self.twist.linear.x = 0.2
-            self.twist.angular.z = 0
-            cmd_vel_pub.publish(self.twist)
-
         wait_time = rospy.Time.now() + rospy.Duration(1.2)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
@@ -431,11 +419,11 @@ class Task2(smach.State):
         global stop, cmd_vel_pub, err,  line_lost, callback_state, object_counts, shape_id_counts, sound_pub, chosen_shape
 
         print 'in task 2'
-        wait_time = rospy.Time.now() + rospy.Duration(1.5)
-        while rospy.Time.now()<wait_time:
-            self.twist.linear.x = 0.2
-            self.twist.angular.z = 0
-            cmd_vel_pub.publish(self.twist)
+        # wait_time = rospy.Time.now() + rospy.Duration(1.5)
+        # while rospy.Time.now()<wait_time:
+        #     self.twist.linear.x = 0.2
+        #     self.twist.angular.z = 0
+        #     cmd_vel_pub.publish(self.twist)
         wait_time = rospy.Time.now() + rospy.Duration(1.4)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
@@ -457,7 +445,7 @@ class Task2(smach.State):
             cmd_vel_pub.publish(self.twist)
         callback_state = 0
         # turn back
-        wait_time = rospy.Time.now() + rospy.Duration(2)
+        wait_time = rospy.Time.now() + rospy.Duration(2.3)
         object_count = numpy.argmax(object_counts["task2"]) + 1
         while rospy.Time.now()<wait_time:
             display_led(object_count)
@@ -479,7 +467,7 @@ class Task2(smach.State):
             self.twist.angular.z = -float(err) / 200
             cmd_vel_pub.publish(self.twist)
         # stops at red line, return to go state
-        wait_time = rospy.Time.now() + rospy.Duration(3)
+        wait_time = rospy.Time.now() + rospy.Duration(1)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0.2
             self.twist.angular.z = 0
@@ -500,15 +488,23 @@ class Task3(smach.State):
         smach.State.__init__(self, outcomes=['go'])
         self.twist = Twist()
     def execute(self, data):
-        global stop, cmd_vel_pub, callback_state, object_counts, shape_id_counts, chosen_shape, shape_found
-        for i in range(0, 2):
+        global stop, cmd_vel_pub, callback_state, object_counts, shape_id_counts, chosen_shape, shape_found, stop_count
+        for i in range(0, 3):
             # track the line
             stop = False
             while (not rospy.is_shutdown()) and not stop:
-                self.twist.linear.x = 0.2
+                self.twist.linear.x = 0.1
                 self.twist.angular.z = -float(err) / 200
                 cmd_vel_pub.publish(self.twist)
-            
+            print("see the red line")
+
+            # go a bit further
+            wait_time = rospy.Time.now() + rospy.Duration(3)
+            while rospy.Time.now()<wait_time:
+                self.twist.linear.x = 0.1
+                self.twist.angular.z = 0
+                cmd_vel_pub.publish(self.twist)
+
             # check each one
             wait_time = rospy.Time.now() + rospy.Duration(1.4)
             while rospy.Time.now()<wait_time:
@@ -537,45 +533,45 @@ class Task3(smach.State):
                 self.twist.linear.x = 0
                 self.twist.angular.z = -1.5
                 cmd_vel_pub.publish(self.twist)
-            wait_time = rospy.Time.now() + rospy.Duration(1)
-            while rospy.Time.now()<wait_time:
-                # backup
-                self.twist.linear.x = -0.2
-                self.twist.angular.z = 0
-                cmd_vel_pub.publish(self.twist)
+            # wait_time = rospy.Time.now() + rospy.Duration(1)
+            # while rospy.Time.now()<wait_time:
+            #     # backup
+            #     self.twist.linear.x = -0.2
+            #     self.twist.angular.z = 0
+            #     cmd_vel_pub.publish(self.twist)
         # check last one
         
-        wait_time = rospy.Time.now() + rospy.Duration(3.4)
-        while rospy.Time.now()<wait_time:
-            self.twist.linear.x = 0.2
-            self.twist.angular.z = 0
-            cmd_vel_pub.publish(self.twist)
-        wait_time = rospy.Time.now() + rospy.Duration(1.4)
-        while rospy.Time.now()<wait_time:
-            # turn
-            self.twist.linear.x = 0
-            self.twist.angular.z = 1.5
-            cmd_vel_pub.publish(self.twist)
-        wait_time = rospy.Time.now() + rospy.Duration(4)
-        callback_state = 3
-        while rospy.Time.now()<wait_time:
-            self.twist.linear.x = 0
-            self.twist.angular.z = 0
-            cmd_vel_pub.publish(self.twist)
-        callback_state = 0
-        current_shape = get_shape(numpy.argmax(shape_id_counts["task3"]))
-        rospy.loginfo(str(current_shape))
-        if (current_shape == chosen_shape) and not shape_found:
-            shape_found = True
-            wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
-            while rospy.Time.now()<wait_time_sound:
-                sound_pub.publish(Sound(Sound.BUTTON))
+        # wait_time = rospy.Time.now() + rospy.Duration(3.4)
+        # while rospy.Time.now()<wait_time:
+        #     self.twist.linear.x = 0.2
+        #     self.twist.angular.z = 0
+        #     cmd_vel_pub.publish(self.twist)
+        # wait_time = rospy.Time.now() + rospy.Duration(1.4)
+        # while rospy.Time.now()<wait_time:
+        #     # turn
+        #     self.twist.linear.x = 0
+        #     self.twist.angular.z = 1.5
+        #     cmd_vel_pub.publish(self.twist)
+        # wait_time = rospy.Time.now() + rospy.Duration(4)
+        # callback_state = 3
+        # while rospy.Time.now()<wait_time:
+        #     self.twist.linear.x = 0
+        #     self.twist.angular.z = 0
+        #     cmd_vel_pub.publish(self.twist)
+        # callback_state = 0
+        # current_shape = get_shape(numpy.argmax(shape_id_counts["task3"]))
+        # rospy.loginfo(str(current_shape))
+        # if (current_shape == chosen_shape) and not shape_found:
+        #     shape_found = True
+        #     wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
+        #     while rospy.Time.now()<wait_time_sound:
+        #         sound_pub.publish(Sound(Sound.BUTTON))
         
-        wait_time = rospy.Time.now() + rospy.Duration(1.4)
-        while rospy.Time.now()<wait_time:
-            self.twist.linear.x = 0
-            self.twist.angular.z = -1.5
-            cmd_vel_pub.publish(self.twist)
+        # wait_time = rospy.Time.now() + rospy.Duration(1.4)
+        # while rospy.Time.now()<wait_time:
+        #     self.twist.linear.x = 0
+        #     self.twist.angular.z = -1.5
+        #     cmd_vel_pub.publish(self.twist)
 
         stop = False
         stop_count = -200
@@ -588,7 +584,7 @@ with sm:
     smach.StateMachine.add('GO', Go(), 
                  transitions={'stop':'STOP'})
     smach.StateMachine.add('STOP', Stop(), 
-                 transitions={'go':'GO', 'task1': 'TASK1', 'task2': 'TASK2', 'task3': 'TASK3'})
+                 transitions={'go':'GO', 'task1': 'TASK1', 'task2': 'TASK2', 'task3': 'TASK3', 'finish': 'finish'})
     smach.StateMachine.add('TASK1', Task1(), 
                  transitions={'go':'GO'})
     smach.StateMachine.add('TASK2', Task2(), 
