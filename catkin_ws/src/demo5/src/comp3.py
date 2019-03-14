@@ -43,7 +43,7 @@ object_counts = {
 } # task 1 and 2
 
 line_lost = False
-stop_count = 1
+stop_count = 0
 rospy.init_node('comp3')
 err = 0
 
@@ -152,13 +152,13 @@ def display_led(count):
         led_pub2.publish(Led(Led.BLACK))
     elif count == 1:
         led_pub1.publish(Led(Led.BLACK))
-        led_pub2.publish(Led(Led.ORANGE))
+        led_pub2.publish(Led(Led.GREEN))
     elif count == 2:
         led_pub1.publish(Led(Led.ORANGE))
         led_pub2.publish(Led(Led.BLACK))
     elif count == 3:
-        led_pub1.publish(Led(Led.ORANGE))
-        led_pub2.publish(Led(Led.ORANGE))
+        led_pub1.publish(Led(Led.RED))
+        led_pub2.publish(Led(Led.RED))
 
 def detect_1(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -181,7 +181,7 @@ def detect_1(image):
     thresh = cv2.filter2D(thresh,-1,kernel)
     
     im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    contours = list(filter(lambda c: c.size > 54, contours))
+    contours = list(filter(lambda c: c.size > 35, contours))
     cv2.drawContours(image, contours, -1, (0, 0, 255), 3)
 
     masked = cv2.bitwise_and(image, image, mask=mask_red)
@@ -232,8 +232,6 @@ def detect_4(image):
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
 
     h, w, d = image.shape
-    mask_red[:,0:w/5] = 0
-    mask_red[:,4*w/5:w] = 0
     # mask_red[:h*2/3] = 0
     # ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
     thresh_red = mask_red
@@ -365,6 +363,8 @@ image_pub = rospy.Publisher('transformed_img', Image, queue_size=1)
 cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=1)
 image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, image_callback)
 bottom_cam = rospy.Subscriber('/bottom/rgb/image_raw', Image, follow_line)
+marker_sub = rospy.Subscriber('/ar_pose_marker', AlvarMarkers, marker_cb)
+
 # cmd_vel_pub = rospy.Publisher('/teleop_velocity_smoother/raw_cmd_vel', Twist, queue_size=1)
 donot_check_time = rospy.Time.now()
 stop = False
@@ -602,13 +602,13 @@ class Task4(smach.State):
         while rospy.Time.now()<wait_time:
             # turn
             self.twist.linear.x = 0
-            self.twist.angular.z = 1.6
+            self.twist.angular.z = -1.6
             cmd_vel_pub.publish(self.twist)
         wait_time = rospy.Time.now() + rospy.Duration(1.2)
         while rospy.Time.now()<wait_time:
             # turn
             self.twist.linear.x = 0
-            self.twist.angular.z = -1.6
+            self.twist.angular.z = 1.6
             cmd_vel_pub.publish(self.twist)
 
 
@@ -635,35 +635,39 @@ class Task4(smach.State):
 
             start_detect = True
             current_marker_pose = None
-            wait_time = rospy.Time.now() + rospy.Duration(1)
+            wait_time = rospy.Time.now() + rospy.Duration(2)
 
             is_shape = False
+            callback_state = 4
 
             while rospy.Time.now()<wait_time:
                 display_led(0)
-            if (numpy.sum(shape_id_counts["task4"]) != 0):
-                current_shape = get_shape(numpy.argmax(shape_id_counts["task4"]))
-                shape_id_counts["task4"][0] = 0
-                shape_id_counts["task4"][1] = 0
-                shape_id_counts["task4"][2] = 0
+                if (numpy.sum(shape_id_counts["task4"]) != 0):
+                    current_shape = get_shape(numpy.argmax(shape_id_counts["task4"]))
+                    shape_id_counts["task4"][0] = 0
+                    shape_id_counts["task4"][1] = 0
+                    shape_id_counts["task4"][2] = 0
 
                 if chosen_shape == current_shape:
                     is_shape = True
-            if current_marker_pose is not None or is_shape or (rp_id == index):
+            if current_marker_pose is not None or (rp_id == index):
                 if current_marker_pose:
                     ar_detected = True
-                if is_shape:
-                    color_detected = True
                 if rp_id == index:
+                    print index
+                    print rp_id
                     random_detected = True
-                sound_pub.publish(Sound(0))
-
+                
                 wait_time = rospy.Time.now() + rospy.Duration(2)
                 while rospy.Time.now() < wait_time:
-                    display_led(1)
+                    sound_pub.publish(Sound(0))
+                    if current_marker_pose:
+                        display_led(1)
+                    elif rp_id == index:
+                        display_led(3)
             start_detect = False
             current_marker_pose = None
-            if ar_detected and is_shape and rp_id:
+            if ar_detected and random_detected:
                 break
 
         '''
@@ -734,10 +738,6 @@ class Task3(smach.State):
                 wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
                 # while rospy.Time.now()<wait_time_sound:
                 sound_pub.publish(Sound(0))
-            if i == 2:
-                wait_time = rospy.Time.now() + rospy.Duration(30)
-                while rospy.Time.now()<wait_time:
-                    continue
             # turn back to line
             wait_time = rospy.Time.now() + rospy.Duration(1.4)
             while rospy.Time.now()<wait_time:
