@@ -403,11 +403,14 @@ class Task1(smach.State):
                 continue
         wait_time = rospy.Time.now() + rospy.Duration(1.2)
 
+        # while not rospy.is_shutdown():
+        #     continue
         while rospy.Time.now()<wait_time:
             display_led(object_count)
             self.twist.linear.x = 0
             self.twist.angular.z = -1.5
             cmd_vel_pub.publish(self.twist)
+
         return 'go'
 
 class Task2(smach.State):

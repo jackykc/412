@@ -11,7 +11,7 @@ red = []
 red.append(numpy.array([130, 132,  110]))
 red.append(numpy.array([180, 255, 255]))
 
-action = 1
+action = 0
 # 0 1 2 3
     
 
@@ -82,10 +82,13 @@ def reconfigure_callback(config, leven):
     
     return config
 
+print "hi"
 rospy.init_node('detector')
+print "why"
 bridge = cv_bridge.CvBridge()
 image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, image_callback)
-image_pub = rospy.Publisher('transformed_img', Image, queue_size=1)
+image_pub = rospy.Publisher('/transformed_img', Image, queue_size=1)
 srv = Server(HSVConfig, reconfigure_callback)
+
 
 rospy.spin()

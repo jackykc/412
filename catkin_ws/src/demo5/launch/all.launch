@@ -7,5 +7,6 @@
     <!-- Launches rviz, map server, move base -->
     <include file="$(find demo5)/launch/amcl_demo_sim.launch"/>
     <include file="$(find demo5)/launch/marker_track.launch"/>
-
+    
+    <include file="$(find demo5)/launch/cam_bottom.launch"/>
 </launch>
