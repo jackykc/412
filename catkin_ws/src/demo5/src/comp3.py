@@ -29,6 +29,9 @@ shape_id
 '''
 global shape_id_counts, object_counts, chosen_shape
 chosen_shape = "circle"
+
+global rp_id
+rp_id = 0
 shape_id_counts = {
     "task2": numpy.asarray([0, 0, 0]),
     "task3": numpy.asarray([0 ,0 ,0]),
@@ -48,6 +51,18 @@ led_pub1 = rospy.Publisher('/mobile_base/commands/led1', Led, queue_size=1)
 led_pub2 = rospy.Publisher('/mobile_base/commands/led2', Led, queue_size=1)
 sound_pub = rospy.Publisher('/mobile_base/commands/sound', Sound, queue_size=1)
 initial_pose_pub = rospy.Publisher("/initialpose", PoseWithCovarianceStamped, queue_size=1)
+rp_id = rospy.get_param('comp3/rp', 0)
+
+if rp_id == 6:
+    rp_id = 7
+elif rp_id == 7:
+    rp_id = 6
+elif rp_id == 8:
+    rp_id = 5
+else:
+    rp_id -= 1
+
+rospy.loginfo(rp_id)
 client = actionlib.SimpleActionClient('move_base', MoveBaseAction)  # <3>
 client.wait_for_server()
 
@@ -181,8 +196,9 @@ def detect_2(image):
     lower_green = numpy.array([44, 54,  63])
     upper_green = numpy.array([88, 255, 255])
     
-    mask_red = cv2.inRange(hsv, lower_red, upper_red)
-    mask_green = cv2.inRange(hsv, lower_green, upper_green)
+    lower_green = numpy.array([44, 54,  63])
+    upper_green = numpy.array([88, 255, 255])
+
 
     ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
 
@@ -347,7 +363,7 @@ def image_callback(msg):
 rospy.Subscriber("/joy", Joy, joy_callback)
 bridge = cv_bridge.CvBridge()
 image_pub = rospy.Publisher('transformed_img', Image, queue_size=1)
-cmd_vel_pub = rospy.Publisher('cmd_vel_mux/inumpyut/teleop', Twist, queue_size=1)
+cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=1)
 image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, image_callback)
 bottom_cam = rospy.Subscriber('/bottom/rgb/image_raw', Image, follow_line)
 # cmd_vel_pub = rospy.Publisher('/teleop_velocity_smoother/raw_cmd_vel', Twist, queue_size=1)
@@ -574,7 +590,7 @@ class Task4(smach.State):
     def execute(self, data):
         global stop, cmd_vel_pub, callback_state, sound_pub, client
         global current_marker_pose, stop_count
-        global shape_id_counts, chosen_shape
+        global shape_id_counts, chosen_shape, rp_id
 
         callback_state = 4
         ar_detected = False
@@ -627,20 +643,28 @@ class Task4(smach.State):
             while rospy.Time.now()<wait_time:
                 display_led(0)
             if (numpy.sum(shape_id_counts["task4"]) != 0):
-                current_shape = get_shape(numpy.argmax(shape_id_counts["task2"]))
+                current_shape = get_shape(numpy.argmax(shape_id_counts["task4"]))
+                shape_id_counts["task4"][0] = 0
+                shape_id_counts["task4"][1] = 0
+                shape_id_counts["task4"][2] = 0
+
                 if chosen_shape == current_shape:
                     is_shape = True
-            if current_marker_pose is not None or is_shape:
+            if current_marker_pose is not None or is_shape or (rp_id == index):
                 if current_marker_pose:
                     ar_detected = True
                 if is_shape:
                     color_detected = True
+                if rp_id == index:
+                    random_detected = True
+                sound_pub.publish(Sound(0))
+
                 wait_time = rospy.Time.now() + rospy.Duration(2)
                 while rospy.Time.now() < wait_time:
                     display_led(1)
             start_detect = False
             current_marker_pose = None
-            if ar_detected and is_shape:
+            if ar_detected and is_shape and rp_id:
                 break
 
         '''
