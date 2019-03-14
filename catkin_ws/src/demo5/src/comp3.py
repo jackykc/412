@@ -43,7 +43,7 @@ object_counts = {
 } # task 1 and 2
 
 line_lost = False
-stop_count = 0
+stop_count = 1
 rospy.init_node('comp3')
 err = 0
 
@@ -181,7 +181,7 @@ def detect_1(image):
     thresh = cv2.filter2D(thresh,-1,kernel)
     
     im2, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    contours = list(filter(lambda c: c.size > 65, contours))
+    contours = list(filter(lambda c: c.size > 54, contours))
     cv2.drawContours(image, contours, -1, (0, 0, 255), 3)
 
     masked = cv2.bitwise_and(image, image, mask=mask_red)
@@ -196,9 +196,8 @@ def detect_2(image):
     lower_green = numpy.array([44, 54,  63])
     upper_green = numpy.array([88, 255, 255])
     
-    lower_green = numpy.array([44, 54,  63])
-    upper_green = numpy.array([88, 255, 255])
-
+    mask_red = cv2.inRange(hsv, lower_red, upper_red)
+    mask_green = cv2.inRange(hsv, lower_green, upper_green)
 
     ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
 
@@ -356,7 +355,7 @@ def image_callback(msg):
         shape_id_counts["task3"][shape_id] += 1
         image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
     elif callback_state == 4:
-        image, count, shape_id = detect_3(image)
+        image, count, shape_id = detect_4(image)
         shape_id_counts["task4"][shape_id] += 1
         image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
         
@@ -430,7 +429,7 @@ class Task1(smach.State):
     def execute(self, data):
         global stop, cmd_vel_pub, callback_state, sound_pub
 
-        wait_time = rospy.Time.now() + rospy.Duration(1.5) 
+        wait_time = rospy.Time.now() + rospy.Duration(1.4) 
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 1.5

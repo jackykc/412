@@ -3,7 +3,7 @@
   <arg name="3d_sensor" default="$(env TURTLEBOT_3D_SENSOR)"/>  <!-- r200, kinect, asus_xtion_pro -->
 
   <!-- Map server -->
-  <arg name="map_file" default="/home/jkc1/412/catkin_ws/src/demo5/maps/map_working.yaml"/>
+  <arg name="map_file" default="$(find demo5)/maps/map_working.yaml"/>
   <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
 
   <!-- AMCL -->
