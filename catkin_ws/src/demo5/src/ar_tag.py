@@ -119,14 +119,14 @@ if __name__ == '__main__':
 
     # initial_pose = initial_pose(waypoints[10])
     # initial_pose_pub.publish(initial_pose)
-    goal = goal_pose(waypoints[11])
+    goal = goal_pose(waypoints[11]) # fork
     client.send_goal(goal)
     client.wait_for_result()
-    goal = goal_pose(waypoints[12])
+    goal = goal_pose(waypoints[12]) # end of line
     client.send_goal(goal)
     client.wait_for_result()
 
-    goal = goal_pose(waypoints[9])
+    goal = goal_pose(waypoints[9]) # middle
     client.send_goal(goal)
     client.wait_for_result()
 

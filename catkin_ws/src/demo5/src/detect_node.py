@@ -6,14 +6,24 @@ from detect.detect_lib import detect_1, detect_2, detect_3
 from dynamic_reconfigure.server import Server
 from demo5.cfg import HSVConfig
 global bridge, action
-global red, green
+global red
 red = []
-red.append(numpy.array([130, 132,  110]))
-red.append(numpy.array([180, 255, 255]))
+# task 1
+# red.append(numpy.array([130, 132,  110]))
+# red.append(numpy.array([200, 256, 256]))
 
-action = 0
+# task3
+# red.append(numpy.array([130, 132,  110]))
+# red.append(numpy.array([180, 255, 125]))
+
+# task 2
+red.append(numpy.array([44, 54,  63]))
+red.append(numpy.array([88, 255, 255]))
+
+action = 1
 # 0 1 2 3
-    
+    # lower_green = numpy.array([44, 54,  63])
+    # upper_green = numpy.array([88, 255, 255])
 
 def clamp_count(count):
     if count < 1:
@@ -70,9 +80,9 @@ def image_callback(msg):
 
     image_pub.publish(bridge.cv2_to_imgmsg(image, encoding='bgr8'))
 
-def reconfigure_callback(config, leven):
-    global red, action
-    action = config.detect_type
+def reconfigure_callback(config, level):
+    global red
+
     red[0][0] = config.low_h
     red[0][1] = config.low_s
     red[0][2] = config.low_v
@@ -82,9 +92,7 @@ def reconfigure_callback(config, leven):
     
     return config
 
-print "hi"
-rospy.init_node('detector')
-print "why"
+rospy.init_node('follower')
 bridge = cv_bridge.CvBridge()
 image_sub = rospy.Subscriber('/camera/rgb/image_raw', Image, image_callback)
 image_pub = rospy.Publisher('/transformed_img', Image, queue_size=1)

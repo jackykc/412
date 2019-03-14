@@ -68,11 +68,13 @@ def detect_3(image, red):
     lower_red = red[0]#numpy.array([0, 205,  38])
     upper_red = red[1]#numpy.array([180, 255, 125])
 
+    
     mask_red = cv2.inRange(hsv, lower_red, upper_red)
     h, w, d = image.shape
 
     mask_red[:,0:w/5] = 0
     mask_red[:,4*w/5:w] = 0
+    mask_red[:h * 2/3] = 0
     # ret, thresh_red = cv2.threshold(mask_red, 127, 255, 0)
     thresh_red = mask_red
 
