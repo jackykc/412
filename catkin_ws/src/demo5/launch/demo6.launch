@@ -3,7 +3,6 @@
     <!-- <node pkg="rqt_gui" name="rqt_gui" type="rqt_gui"></node> -->
 
     <include file="$(find turtlebot_bringup)/launch/minimal.launch"/>
-    <include file="$(find demo5)/launch/3dsensor.launch"/>
     <!-- Launches rviz, map server, move base -->
     <include file="$(find demo5)/launch/odom_nav_demo.launch"/>
     <include file="$(find demo5)/launch/marker_track.launch"/>    
