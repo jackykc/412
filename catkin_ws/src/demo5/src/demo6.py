@@ -41,6 +41,8 @@ def caminfo_callback(msg):
     global caminfo
     caminfo = msg
 
+br = tf.TransformBroadcaster()
+    
 def marker_cb(msg):
     global np_current_marker_pose
     if len(msg.markers):
@@ -48,10 +50,30 @@ def marker_cb(msg):
 
         for marker in msg.markers:
             current_marker_pose = marker.pose.pose
+
             # np_current_marker_pose = numpify(current_marker_pose)
             # print current_marker_pose
             np_current_marker_pose = (current_marker_pose.position.x, current_marker_pose.position.y, current_marker_pose.position.z)
-            np_current_marker_pose = tf.transformations.euler_from_quaternion(np_current_marker_pose)
+            br.sendTransform((0.3, 0, 0),
+                     (0, 0, 0, 1),
+                     rospy.Time.now(),
+                     'ar_x',
+                     'ar_marker_2')
+            br.sendTransform((0, 0.3, 0),
+                     (0, 0, 0, 1),
+                     rospy.Time.now(),
+                     'ar_y',
+                     'ar_marker_2')
+            br.sendTransform((0, 0, 0.3),
+                     (0, 0, 0, 1),
+                     rospy.Time.now(),
+                     'ar_z',
+                     'ar_marker_2')
+            
+            
+            # np_current_marker_pose = tf.transformations.euler_from_quaternion(current_marker_pose)
+    else:
+        np_current_marker_pose = None
 
 def img_callback(msg):
 
@@ -62,17 +84,23 @@ def img_callback(msg):
         cam_model = PinholeCameraModel()
         cam_model.fromCameraInfo(caminfo)
         try:
-            (trans,rot) = listener.lookupTransform(cam_model.tfFrame(), '/base_link', rospy.Time(0))
+            p, _ = listener.lookupTransform(cam_model.tfFrame(), 'ar_marker_2', rospy.Time(0))
+            px, _ = listener.lookupTransform(cam_model.tfFrame(), 'ar_x', rospy.Time(0))
+            py, _ = listener.lookupTransform(cam_model.tfFrame(), 'ar_y', rospy.Time(0))
+            pz, _ = listener.lookupTransform(cam_model.tfFrame(), 'ar_z', rospy.Time(0))
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             rospy.logerr("error")
             return
-        print 'trans'
-        print trans
-        pixels = cam_model.project3dToPixel(np_current_marker_pose)
-        # pixels = cam_model.project3dToPixel(trans)
-        print 'pixels'
-        print pixels
-        # cv2.circle(img, (int(u), int(v)), 20, (0,255,0), -1)
+        point = cam_model.project3dToPixel(p)
+        point_x = cam_model.project3dToPixel(px)
+        point_y = cam_model.project3dToPixel(py)
+        point_z = cam_model.project3dToPixel(pz)
+
+        img = cv2.circle(img, (int(point[0]), int(point[1])), 5, (0,255,0), -1)
+        img = cv2.line(img, (int(point[0]), int(point[1])), (int(point_x[0]), int(point_x[1])), (255,0,0), 5)
+        img = cv2.line(img, (int(point[0]), int(point[1])), (int(point_y[0]), int(point_y[1])), (0,255,0), 5)
+        img = cv2.line(img, (int(point[0]), int(point[1])), (int(point_z[0]), int(point_z[1])), (0,0,255), 5)
+
         
         # scale, shear, rpy_angles, translation_vector, perspective = tf.transformations.decompose_matrix(np_current_marker_pose)
         # print rpy_angles, translation_vector
