@@ -43,7 +43,7 @@ def marker_cb(msg):
     global current_marker_pose
     if len(msg.markers):
         for marker in msg.markers:
-            if (msg.markers[0].id == 4) or (msg.markers[0].id == 2):
+            if (msg.markers[0].id == 3) or (msg.markers[0].id == 2):
                 current_marker_pose = marker.pose.pose
         # print current_marker_pose
 
@@ -71,19 +71,10 @@ class Turn(smach.State):
         twist = Twist()
         twist.linear.x = 0.2
         wait_time = rospy.Time.now()+rospy.Duration(5)
-        while rospy.Time.now() < wait_time:
+        while rospy.Time.now() < wait_time or current_marker_pose is None:
             cmd_vel_pub.publish(twist)
 
         while not rospy.is_shutdown():
-            pose = numpify(current_pose) 
-            __, __, angles, translate, __ = decompose_matrix(pose)
-            heading = angles[2] * 180 / 3.14159
-            cmd_vel_pub.publish(self.twist)
-            if heading > 90:
-                self.twist.angular.z = -1 * self.angular_speed
-            elif heading < -90:
-                self.twist.angular.z = self.angular_speed
-
             if current_marker_pose is not None:
                 np_current_pose = numpify(current_pose)
                 np_current_parking_pose = numpify(current_marker_pose)
@@ -94,6 +85,16 @@ class Turn(smach.State):
                 current_marker_pose = None
                 break
         
+            pose = numpify(current_pose) 
+            __, __, angles, translate, __ = decompose_matrix(pose)
+            heading = angles[2] * 180 / 3.14159
+            cmd_vel_pub.publish(self.twist)
+            if heading > 90:
+                self.twist.angular.z = -1 * self.angular_speed
+            elif heading < -90:
+                self.twist.angular.z = self.angular_speed
+
+            
         '''
         # pose for side box
         goal_pose = MoveBaseGoal()
@@ -156,7 +157,7 @@ class TurnLookBehind(smach.State):
 
 class NavigateGoalA(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['push'])
+        smach.State.__init__(self, outcomes=['center_goal_a'])
     def execute(self, data):
         global current_marker_pose, current_pose, direction
         
@@ -172,28 +173,68 @@ class NavigateGoalA(smach.State):
             goal_pose.target_pose.header.frame_id = 'odom'
             goal_pose.target_pose.pose = temp_goal_pose
             goal_pose.target_pose.pose.position.z = 0.0
-            goal_pose.target_pose.pose.orientation.x = 0#current_marker_pose.orientation.x
-            goal_pose.target_pose.pose.orientation.y = 0#current_marker_pose.orientation.y
-            goal_pose.target_pose.pose.orientation.z = -1#-1*current_pose.orientation.z
-            goal_pose.target_pose.pose.orientation.w = 0#current_pose.orientation.w
+            goal_pose.target_pose.pose.orientation.x = 0
+            goal_pose.target_pose.pose.orientation.y = 0
+            goal_pose.target_pose.pose.orientation.z = 1
+            goal_pose.target_pose.pose.orientation.w = 0
 
             # pose for side of box
-            goal_pose1 = copy.deepcopy(goal_pose)
-            # left and right TODO: change direction depending on parking spot
-            if (goal_pose1.target_pose.pose.position.y < parking_spot_pose.position.y):
+            box_side_pose = copy.deepcopy(goal_pose)
+            # this is the global direction when pushing the box to x
+            if (box_side_pose.target_pose.pose.position.y < parking_spot_pose.position.y):
                 direction = -1
             else:
                 direction = 1
-            goal_pose1.target_pose.pose.position.y += direction * 0.75
-            goal_pose1.target_pose.pose.position.x += 0.95#1.05
+
+            if (box_side_pose.target_pose.pose.position.y < current_pose.position.y):
+                temp_direction = 1
+            else:
+                temp_direction = -1
+
+            box_side_pose.target_pose.pose.position.y += temp_direction * 0.75
+            box_side_pose.target_pose.pose.position.x += 0.75#1.05
             # go to side
-            client.send_goal(goal_pose1)
+            client.send_goal(box_side_pose)
             client.wait_for_result()
             # go behind
+            goal_pose.target_pose.pose.orientation.z = 0
+            goal_pose.target_pose.pose.orientation.w = 1
             client.send_goal(goal_pose)
             client.wait_for_result()
 
-        return 'push'
+        return 'center_goal_a'
+
+class CenterGoalA(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['push_x'])
+    def execute(self, data):
+        global current_marker_pose, current_pose, direction
+        
+        if (current_marker_pose is not None and current_pose is not None):
+            np_current_pose = numpify(current_pose)
+            np_current_marker_pose = numpify(current_marker_pose)
+            np_goal_pose = np.matmul(np_current_pose, np_current_marker_pose)
+            temp_goal_pose = geometry.numpy_to_pose(np_goal_pose)
+            temp_goal_pose.position.x -= 1.05
+
+            # pose for behind box
+            goal_pose = MoveBaseGoal()
+            goal_pose.target_pose.header.frame_id = 'odom'
+            goal_pose.target_pose.pose = temp_goal_pose
+            goal_pose.target_pose.pose.position.z = 0.0
+            goal_pose.target_pose.pose.orientation.x = 0
+            goal_pose.target_pose.pose.orientation.y = 0
+            goal_pose.target_pose.pose.orientation.z = 1
+            goal_pose.target_pose.pose.orientation.w = 0
+
+            # go behind
+            goal_pose.target_pose.pose.orientation.z = 0
+            goal_pose.target_pose.pose.orientation.w = 1
+            client.send_goal(goal_pose)
+            client.wait_for_result()
+
+        return 'push_x'
+
 
 class PushX(smach.State):
     def __init__(self):
@@ -205,14 +246,21 @@ class PushX(smach.State):
     def execute(self, data):
         global current_pose, parking_spot_pose
         temp_goal_pose = parking_spot_pose
-        temp_goal_pose.position.x -= 1.05
+        temp_goal_pose.position.x -= 1.35
 
+        while not (current_pose and current_pose.position.x >= temp_goal_pose.position.x):
+            cmd_vel_pub.publish(self.twist)
+
+        return 'goal_b'
+        
+        '''
         # pose for behind box
         goal_pose = MoveBaseGoal()
         goal_pose.target_pose.header.frame_id = 'odom'
-        goal_pose.target_pose.pose = temp_goal_pose
-        goal_pose.target_pose.pose.position.y = current_pose.position.y
-        goal_pose.target_pose.pose.position.z = 0.0
+        goal_pose.target_pose.pose = current_pose
+        goal_pose.target_pose.pose.position.x = temp_goal_pose.position.x
+        # goal_pose.target_pose.pose.position.y = current_pose.position.y
+        # goal_pose.target_pose.pose.position.z = 0.0
         goal_pose.target_pose.pose.orientation.x = 0#current_marker_pose.orientation.x
         goal_pose.target_pose.pose.orientation.y = 0#current_marker_pose.orientation.y
         goal_pose.target_pose.pose.orientation.z = 1#-1*current_pose.orientation.z
@@ -221,19 +269,18 @@ class PushX(smach.State):
         client.send_goal(goal_pose)
         client.wait_for_result()
         
-        # cmd_vel_pub.publish(self.twist)
-        # if current_pose and current_pose.position.x < 0:
-        #     return 'turn'
-        return 'goal_b'
 
-        # return 'finish'
+        return 'goal_b'
+        '''
 
 class NavigateGoalB(smach.State):
     def __init__(self):
-        smach.State.__init__(self, outcomes=['turn_back'])
+        smach.State.__init__(self, outcomes=['push_y'])
     def execute(self, data):
         global current_pose, parking_spot_pose, direction, initial_pose
         
+        '''
+        # go to initial position
         park_goal_pose = MoveBaseGoal()
         park_goal_pose.target_pose.header.frame_id = 'odom'
         park_goal_pose.target_pose.pose = initial_pose
@@ -247,16 +294,15 @@ class NavigateGoalB(smach.State):
         park_goal_pose.target_pose.pose.orientation.w = 0#current_pose.orientation.w
 
 
-        # go behind
         client.send_goal(park_goal_pose)
         client.wait_for_result()
-
         '''
+
         # pose for side box
         goal_pose = MoveBaseGoal()
         goal_pose.target_pose.header.frame_id = 'odom'
         goal_pose.target_pose.pose = current_pose
-        goal_pose.target_pose.pose.position.x += 0.4
+        goal_pose.target_pose.pose.position.x -= 0.4
         goal_pose.target_pose.pose.position.y += direction * 0.75
         goal_pose.target_pose.pose.position.z = 0.0
 
@@ -293,7 +339,31 @@ class NavigateGoalB(smach.State):
         # go behind
         client.send_goal(park_goal_pose)
         client.wait_for_result()
-        '''
+        
+        return 'push_y'
+
+class PushY(smach.State):
+    def __init__(self):
+        smach.State.__init__(self, outcomes=['turn_back'])
+        self.twist = Twist()
+        # self.twist.linear.y = 0.3
+        self.twist.angular.z = 0
+
+    def execute(self, data):
+        global current_pose, parking_spot_pose, direction
+        self.twist.linear.x = direction * 0.3
+        
+        temp_goal_pose = parking_spot_pose
+        temp_goal_pose.position.y -= direction * 0.75
+        while not (current_pose and position_check):
+            cmd_vel_pub.publish(self.twist)
+
+
+            if direction > 0:
+                position_check = (current_pose.position.y >= temp_goal_pose.position.y)
+            else:
+                position_check = (current_pose.position.y <= temp_goal_pose.position.y)
+
         return 'turn_back'
 
 sm = smach.StateMachine(outcomes=['finish'])
@@ -304,11 +374,14 @@ with sm:
     smach.StateMachine.add('TURN_LOOK_BEHIND', TurnLookBehind(), 
                  transitions={'goal_a':'GOALA'})
     smach.StateMachine.add('GOALA', NavigateGoalA(), 
-                 transitions={'push':'PUSHX'})
+                 transitions={'center_goal_a':'CENTERGOALA'})
+    smach.StateMachine.add('CENTERGOALA', CenterGoalA(), 
+                 transitions={'push_x':'PUSHX'})
     smach.StateMachine.add('PUSHX', PushX(), 
                  transitions={"goal_b": "GOALB"})
     smach.StateMachine.add('GOALB', NavigateGoalB(), 
+                 transitions={'push_y':'PUSHY'})
+    smach.StateMachine.add('PUSHY', PushY(), 
                  transitions={'turn_back':'TURN_LOOK_BEHIND'})
-    
 outcome = sm.execute()
 rospy.spin()
