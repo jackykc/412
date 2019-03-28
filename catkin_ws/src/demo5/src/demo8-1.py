@@ -244,39 +244,39 @@ class PushX(smach.State):
     def execute(self, data):
         global current_pose, parking_spot_pose
         temp_goal_pose = parking_spot_pose
-        temp_goal_pose.position.x -= 0.7
+        temp_goal_pose.position.x -= 1.75
 
-        '''
         while not (current_pose and current_pose.position.x >= temp_goal_pose.position.x):
             cmd_vel_pub.publish(self.twist)
+
         return 'goal_b'
-        '''
         
+        '''
         # pose for behind box
         goal_pose = MoveBaseGoal()
         goal_pose.target_pose.header.frame_id = 'odom'
         goal_pose.target_pose.pose = current_pose
         goal_pose.target_pose.pose.position.x = temp_goal_pose.position.x
-        goal_pose.target_pose.pose.orientation.x = 0
-        goal_pose.target_pose.pose.orientation.y = 0
-        goal_pose.target_pose.pose.orientation.z = 0
-        goal_pose.target_pose.pose.orientation.w = 1
+        # goal_pose.target_pose.pose.position.y = current_pose.position.y
+        # goal_pose.target_pose.pose.position.z = 0.0
+        goal_pose.target_pose.pose.orientation.x = 0#current_marker_pose.orientation.x
+        goal_pose.target_pose.pose.orientation.y = 0#current_marker_pose.orientation.y
+        goal_pose.target_pose.pose.orientation.z = 1#-1*current_pose.orientation.z
+        goal_pose.target_pose.pose.orientation.w = 0#current_pose.orientation.w
 
-        print current_pose.position
         client.send_goal(goal_pose)
         client.wait_for_result()
+        
 
         return 'goal_b'
-        
+        '''
 
 class NavigateGoalB(smach.State):
     def __init__(self):
         smach.State.__init__(self, outcomes=['push_y'])
     def execute(self, data):
         global current_pose, parking_spot_pose, direction, initial_pose
-
-        print current_pose.position
-
+        
         '''
         # go to initial position
         park_goal_pose = MoveBaseGoal()
@@ -300,7 +300,7 @@ class NavigateGoalB(smach.State):
         goal_pose = MoveBaseGoal()
         goal_pose.target_pose.header.frame_id = 'odom'
         goal_pose.target_pose.pose = current_pose
-        goal_pose.target_pose.pose.position.x += 0.4
+        goal_pose.target_pose.pose.position.x -= 0.4
         goal_pose.target_pose.pose.position.y += direction * 0.75
         goal_pose.target_pose.pose.position.z = 0.0
 
@@ -311,7 +311,7 @@ class NavigateGoalB(smach.State):
 
         # backup
         twist = Twist()
-        twist.linear.x = -0.2
+        twist.linear.x = 0.2
         wait_time = rospy.Time.now()+rospy.Duration(4)
         while rospy.Time.now() < wait_time:
             cmd_vel_pub.publish(twist)
@@ -320,18 +320,12 @@ class NavigateGoalB(smach.State):
         client.send_goal(goal_pose)
         client.wait_for_result()
 
-         # robot on left
-        if current_pose.position.y > parking_spot_pose.position.y:
-            parking_spot_pose.position.y += 0.3
-        else:
-            parking_spot_pose.position.y -= 0.3
-
         # pose side of parking spot
         park_goal_pose = MoveBaseGoal()
         park_goal_pose.target_pose.header.frame_id = 'odom'
         park_goal_pose.target_pose.pose = parking_spot_pose
         park_goal_pose.target_pose.pose.position.x = goal_pose.target_pose.pose.position.x
-        park_goal_pose.target_pose.pose.position.y = parking_spot_pose.position.y# + (direction*0.3)
+        park_goal_pose.target_pose.pose.position.y = parking_spot_pose.position.y - (direction*0.5)
         park_goal_pose.target_pose.pose.position.z = 0.0
 
         park_goal_pose.target_pose.pose.orientation.x = 0#current_marker_pose.orientation.x
@@ -340,7 +334,7 @@ class NavigateGoalB(smach.State):
         park_goal_pose.target_pose.pose.orientation.w = 0#current_pose.orientation.w
 
 
-        # go to parking spot
+        # go behind
         client.send_goal(park_goal_pose)
         client.wait_for_result()
         
@@ -355,29 +349,20 @@ class PushY(smach.State):
 
     def execute(self, data):
         global current_pose, parking_spot_pose, direction
-        self.twist.linear.x = direction * 0.2
-        '''
+        self.twist.linear.x = direction * 0.3
+        
         temp_goal_pose = parking_spot_pose
-        y_goal = temp_goal_pose.position.y 
-        if current_pose.position.y > parking_spot_pose.position.y:
-            y_goal -= 10
-            temp_direction = 'left' # robot on left
-        else:
-            y_goal += 10
-            temp_direction = 'right' # robot on right
-
+        temp_goal_pose.position.y -= direction * 0.75
         position_check = False
         while not (current_pose and position_check):
-            print "-----------"
-            print current_pose.position.y
-            print y_goal
             cmd_vel_pub.publish(self.twist)
-            # robot on left
-            if temp_direction == 'left':
-                position_check = (current_pose.position.y <= y_goal)
-            else: # robot on right
-                position_check = (current_pose.position.y >= y_goal)
-        '''
+
+
+            if direction > 0:
+                position_check = (current_pose.position.y >= temp_goal_pose.position.y)
+            else:
+                position_check = (current_pose.position.y <= temp_goal_pose.position.y)
+
         return 'turn_back'
 
 sm = smach.StateMachine(outcomes=['finish'])
