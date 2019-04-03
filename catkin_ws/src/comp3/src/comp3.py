@@ -654,7 +654,7 @@ class Task4(smach.State):
             if current_marker_pose is not None: # ar tag found
                 if current_marker_id == 1:
                     box_pos = index
-                elif current_marker_id == 3
+                elif current_marker_id == 3:
                     stand_pos = index
 
                 if current_marker_pose:
@@ -672,7 +672,12 @@ class Task4(smach.State):
             push_from_pos = box_pos - 1
         else:
             push_from_pos = box_pos + 1
+        
+        goal = goal_pose(waypoints[push_from_pos])
 
+        client.send_goal(goal)
+        client.wait_for_result()
+            
         
         for index, pose in enumerate(waypoints_color):
             goal = goal_pose(pose)
