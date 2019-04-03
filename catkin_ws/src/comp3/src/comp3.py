@@ -17,9 +17,10 @@ import actionlib
 
 global stop, donot_check_time, image_pub, err, cmd_vel_pub, bridge, stop_count, line_lost, led_pub1, led_pub2, sound_pub
 
-global client, waypoints, waypoint_id, current_marker_pose, start_detect
+global client, waypoints, waypoint_id, current_marker_pose, current_marker_id, start_detect
 start_detect = False
 current_marker_pose = None
+current_marker_id = None
 waypoint_id = 0 # 0 - 7
 '''
 shape_id
@@ -43,7 +44,7 @@ object_counts = {
 } # task 1 and 2
 
 line_lost = False
-stop_count = 0
+stop_count = 3 # stop count 3 is the box
 rospy.init_node('comp3')
 err = 0
 
@@ -81,8 +82,9 @@ def marker_cb(msg):
         # print msg.markers
 
         for marker in msg.markers:
-            global current_marker_pose
+            global current_marker_pose, current_marker_id
             current_marker_pose = marker.pose.pose
+            current_marker_id = marker.id
 
 def joy_callback(msg):
     global start
@@ -557,6 +559,20 @@ waypoints = [  # <1>
     [(1.2163, 0.14463, 0.0), (0.0, 0.0,  -0.2283, 0.9735)], # id12 end of line
 ]
 
+
+waypoints_ar_tag = [
+    [(3.9601,  0.6277, 0.0), (0.0, 0.0, -0.457517057285,  0.889200844744)], # 1
+    [(3.34565406796, 0.317120621532, 0.0), (0.0, 0.0, -0.424949894771, 0.905216872873)], # 2
+    [(2.72807151809, -0.0691899371223, 0.0), (0.0, 0.0, -0.449581844831, 0.893239141999)], # 3
+    [(1.84595498828, -0.39846898786, 0.0), (0.0, 0.0, -0.517863428489, 0.855463306889)], # 4
+    [(1.1559460244, -0.788983823262, 0.0), (0.0, 0.0, -0.556989230814, 0.830519714851)] # 5
+]
+
+waypoints_color = [
+    [(1.2, -0.86, 0.0), (0.0, 0.0, -0.9119, 0.410)], # 8
+    [(2.0882, 0.1414, 0.0), (0.0, 0.0, 0.88392, 0.4676)], # 7
+    [(2.9047, 0.4278, 0.0), (0.0, 0.0, 0.8565, 0.516)] # 6   
+]
 def goal_pose(pose):  # <2>
     goal_pose = MoveBaseGoal()
     goal_pose.target_pose.header.frame_id = 'map'
@@ -588,7 +604,7 @@ class Task4(smach.State):
         self.twist = Twist()
     def execute(self, data):
         global stop, cmd_vel_pub, callback_state, sound_pub, client
-        global current_marker_pose, stop_count
+        global current_marker_pose, current_marker_id, stop_count
         global shape_id_counts, chosen_shape, rp_id
 
         callback_state = 4
@@ -597,7 +613,7 @@ class Task4(smach.State):
         random_detected = False
         start_pose = initial_pose(waypoints[10])
         initial_pose_pub.publish(start_pose)
-    
+            
         wait_time = rospy.Time.now() + rospy.Duration(1.2)
         while rospy.Time.now()<wait_time:
             # turn
@@ -610,7 +626,6 @@ class Task4(smach.State):
             self.twist.linear.x = 0
             self.twist.angular.z = 1.6
             cmd_vel_pub.publish(self.twist)
-
 
         goal = goal_pose(waypoints[11]) # fork
         client.send_goal(goal)
@@ -627,12 +642,45 @@ class Task4(smach.State):
         while rospy.Time.now()<wait_time:
             display_led(0)
 
-        for index, pose in enumerate(waypoints[0:8]):
+        box_pos = None
+        stand_pos = None
+        for index, pose in enumerate(waypoints_ar_tag):
             goal = goal_pose(pose)
 
             client.send_goal(goal)
             client.wait_for_result()
+            current_marker_pose = None
+            rospy.sleep(1)
+            if current_marker_pose is not None: # ar tag found
+                if current_marker_id == 1:
+                    box_pos = index
+                elif current_marker_id == 3
+                    stand_pos = index
 
+                if current_marker_pose:
+                    ar_detected = True
+                
+                wait_time = rospy.Time.now() + rospy.Duration(2)
+                while rospy.Time.now() < wait_time:
+                    sound_pub.publish(Sound(0))
+                    display_led(1)
+            
+        difference = box_pos - stand_pos
+        push_from_pos = 0
+        # negative = box is to the left
+        if difference < 0:
+            push_from_pos = box_pos - 1
+        else:
+            push_from_pos = box_pos + 1
+
+        
+        for index, pose in enumerate(waypoints_color):
+            goal = goal_pose(pose)
+
+            client.send_goal(goal)
+            client.wait_for_result()
+            
+            '''
             start_detect = True
             current_marker_pose = None
             wait_time = rospy.Time.now() + rospy.Duration(2)
@@ -669,6 +717,7 @@ class Task4(smach.State):
             current_marker_pose = None
             if ar_detected and random_detected:
                 break
+            '''
 
         '''
         object_count = numpy.argmax(object_counts["task1"]) + 1
