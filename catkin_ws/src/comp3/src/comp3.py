@@ -30,8 +30,8 @@ shape_id
 2 circle
 '''
 global shape_id_counts, object_counts, chosen_shape
-chosen_shape = "triangle"
-stop_count = 3 # stop count 3 is the box
+chosen_shape = "circle"
+stop_count = 0 # stop count 3 is the box
 
 shape_id_counts = {
     "task2": numpy.asarray([0, 0, 0]),
@@ -570,7 +570,7 @@ waypoints_ar_tag = [
 
 waypoints_color = [
     # [(1.2, -0.86, 0.0), (0.0, 0.0, -0.9119, 0.410)], # 8
-    [(1.55832888989, -0.693808816509, 0.0), (0.0, 0.0, -0.952146407596, 0.30564230483)],
+    [(1.26080357823, -0.61552255235, 0.0), (0.0, 0.0, -0.980946859312, 0.194276244572)],
     [(2.0882, 0.1314, 0.0), (0.0, 0.0, 0.88392, 0.4676)], # 7
     [(2.9047, 0.4278, 0.0), (0.0, 0.0, 0.8565, 0.516)] # 6   
 ]
@@ -703,7 +703,7 @@ class Task4(smach.State):
             if current_marker_pose is not None: # ar tag found
                 if current_marker_id == 1:
                     box_pos = index
-                elif current_marker_id == 3:
+                elif current_marker_id == 2:
                     stand_pos = index
 
                 if current_marker_pose:
@@ -712,47 +712,50 @@ class Task4(smach.State):
                 wait_time = rospy.Time.now() + rospy.Duration(2)
                 display_led(0)
                 while rospy.Time.now() < wait_time:
-                    sound_pub.publish(Sound(0))
                     if current_marker_id == 1:
+                        sound_pub.publish(Sound(0))
                         display_led(3)
-                    else:
+                    elif current_marker_id == 2:
+                        sound_pub.publish(Sound(0))
                         display_led(1)
-        difference = box_pos - stand_pos
-        # negative = box is to the left
-        if difference < 0:
-            push_from_pos = box_pos - 1
-            temp_waypoints = waypoints_left
-        else:
-            push_from_pos = box_pos + 1
-            temp_waypoints = waypoints_right        
-        # spot infront of box
-        goal = goal_pose(temp_waypoints[push_from_pos])
-        client.send_goal(goal)
-        client.wait_for_result()
+        '''
+        if (box_pos is not None) and (stand_pos is not None):
+            difference = box_pos - stand_pos
+            # negative = box is to the left
+            if difference < 0:
+                push_from_pos = box_pos - 1
+                temp_waypoints = waypoints_left
+            else:
+                push_from_pos = box_pos + 1
+                temp_waypoints = waypoints_right        
+            # spot infront of box
+            goal = goal_pose(temp_waypoints[push_from_pos])
+            client.send_goal(goal)
+            client.wait_for_result()
+            
+            # spot beside box
+            goal = goal_pose(waypoints[push_from_pos])
+            client.send_goal(goal)
+            client.wait_for_result()
+            ######## box
+            
+            twist = Twist()
+            twist.linear.x = 0.3
+            twist.angular.z = 0
         
-        # spot beside box
-        goal = goal_pose(waypoints[push_from_pos])
-        client.send_goal(goal)
-        client.wait_for_result()
-        ######## box
-        
-        twist = Twist()
-        twist.linear.x = 0.3
-        twist.angular.z = 0
-    
-        if difference < 0:
-            difference = -1 * difference
-        # push
-        for i in range(difference):
+            if difference < 0:
+                difference = -1 * difference
+            # push
+            for i in range(difference):
+                wait_time = rospy.Time.now() + rospy.Duration(5)
+                while rospy.Time.now() < wait_time:
+                    cmd_vel_pub.publish(twist)
+
+            twist.linear.x = -0.3
             wait_time = rospy.Time.now() + rospy.Duration(5)
             while rospy.Time.now() < wait_time:
                 cmd_vel_pub.publish(twist)
-
-        twist.linear.x = -0.3
-        wait_time = rospy.Time.now() + rospy.Duration(5)
-        while rospy.Time.now() < wait_time:
-            cmd_vel_pub.publish(twist)
-
+        '''
         # go to end
         goal = goal_pose(waypoints[8])
         client.send_goal(goal)
