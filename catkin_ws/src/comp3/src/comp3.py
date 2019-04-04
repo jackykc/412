@@ -8,7 +8,7 @@ import cv2, cv_bridge, numpy
 import smach
 import smach_ros
 
-python import math
+import math
 
 from geometry_msgs.msg import PoseWithCovarianceStamped
 
@@ -158,6 +158,9 @@ def display_led(count):
     elif count == 3:
         led_pub1.publish(Led(Led.RED))
         led_pub2.publish(Led(Led.RED))
+    elif count == 4:
+        led_pub1.publish(Led(Led.ORANGE))
+        led_pub2.publish(Led(Led.GREEN))
 
 def detect_1(image):
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -553,7 +556,7 @@ waypoints = [  # <1>
     [(2.866, -0.227, 0.0), (0.0, 0.0,  -0.9901, 0.139)], # id9 middle
     [(0.1780, -0.0476, 0.0), (0.0, 0.0,  0.2488, 0.96855)], # id10 start
     [(0.6432, 0.396, 0.0), (0.0, 0.0,  -0.0287, 0.99958)], # id11 fork
-    [(1.2163, 0.24463, 0.0), (0.0, 0.0,  -0.2283, 0.9735)], # id12 end of line
+    [(1.014, 0.4897, 0.0), (0.0, 0.0,  -0.0026567463, 0.999996470843)], # id12 end of line
 ]
 
 
@@ -567,12 +570,12 @@ waypoints_ar_tag = [
 
 waypoints_color = [
     # [(1.2, -0.86, 0.0), (0.0, 0.0, -0.9119, 0.410)], # 8
-    [(1.2, -0.86, 0.0), (0.0, 0.0, -0.9574, 0.410)],
+    [(1.55832888989, -0.693808816509, 0.0), (0.0, 0.0, -0.952146407596, 0.30564230483)],
     [(2.0882, 0.1314, 0.0), (0.0, 0.0, 0.88392, 0.4676)], # 7
     [(2.9047, 0.4278, 0.0), (0.0, 0.0, 0.8565, 0.516)] # 6   
 ]
 
-waypoinst_left = [
+waypoints_left = [
     [(4.4510,  -0.123, 0.0), (0.0, 0.0, -0.964839, 0.2628407)],
     [(3.745, -0.521, 0.0), (0.0, 0.0, -0.97598, 0.217831)],
     [(3.037, -0.8509, 0.0), (0.0, 0.0, -0.97222, 0.2340)],
@@ -590,25 +593,6 @@ waypoints_right = [
     [(1.492, -1.613, 0.0), (0.0, 0.0, 0.22920, 0.97337)]
 ]
 
-'''
-waypoinst_left = [
-    [(4.2621626, -0.0815358, 0.0), (0.0, 0.0, -0.964839, 0.2628407)],
-    [(3.51800, -0.2252, 0.0), (0.0, 0.0, -0.97598, 0.217831)],
-    [(2.994581, -0.72007, 0.0), (0.0, 0.0, -0.97222, 0.2340)],
-    [(0, 0, 0.0), (0.0, 0.0, 0, 0)],
-
-    [(0, 0, 0.0), (0.0, 0.0, 0, 0)] # not used
-]
-
-waypoints_right = [
-    [(0, 0, 0.0), (0.0, 0.0, 0, 0)], # not used
-
-    [(3.518001, -0.49951, 0.0), (0.0, 0.0, 0.241439, 0.970415)],
-    [(2.5542279, -0.9974, 0.0), (0.0, 0.0, 0.24462, 0.969617)],
-    [(1.93752, -1.322, 0.0), (0.0, 0.0, 0.298229334623, 0.954494245121)],
-    [(1.64210, -1.5153, 0.0), (0.0, 0.0, 0.22920, 0.97337)]
-]
-'''
 def goal_pose(pose):  # <2>
     goal_pose = MoveBaseGoal()
     goal_pose.target_pose.header.frame_id = 'map'
@@ -670,7 +654,6 @@ class Task4(smach.State):
         client.send_goal(goal)
         client.wait_for_result()
 
-        exit()
         goal = goal_pose(waypoints[12]) # end of line
         client.send_goal(goal)
         client.wait_for_result()
@@ -703,7 +686,7 @@ class Task4(smach.State):
                 wait_time = rospy.Time.now() + rospy.Duration(2)
                 while rospy.Time.now() < wait_time:
                     sound_pub.publish(Sound(0))
-                    display_led(2)
+                    display_led(4)
 
         ####### box
         box_pos = None
@@ -727,6 +710,7 @@ class Task4(smach.State):
                     ar_detected = True
                 
                 wait_time = rospy.Time.now() + rospy.Duration(2)
+                display_led(0)
                 while rospy.Time.now() < wait_time:
                     sound_pub.publish(Sound(0))
                     if current_marker_id == 1:
@@ -737,10 +721,10 @@ class Task4(smach.State):
         # negative = box is to the left
         if difference < 0:
             push_from_pos = box_pos - 1
-            temp_waypoints = waypoinst_left
+            temp_waypoints = waypoints_left
         else:
             push_from_pos = box_pos + 1
-            temp_waypoints = waypoinst_right        
+            temp_waypoints = waypoints_right        
         # spot infront of box
         goal = goal_pose(temp_waypoints[push_from_pos])
         client.send_goal(goal)
@@ -756,14 +740,16 @@ class Task4(smach.State):
         twist.linear.x = 0.3
         twist.angular.z = 0
     
+        if difference < 0:
+            difference = -1 * difference
         # push
-        for i in range(math.abs(difference)):
-            wait_time = rospy.Time.now() + rospy.Duration(2)
+        for i in range(difference):
+            wait_time = rospy.Time.now() + rospy.Duration(5)
             while rospy.Time.now() < wait_time:
                 cmd_vel_pub.publish(twist)
 
         twist.linear.x = -0.3
-        wait_time = rospy.Time.now() + rospy.Duration(2)
+        wait_time = rospy.Time.now() + rospy.Duration(5)
         while rospy.Time.now() < wait_time:
             cmd_vel_pub.publish(twist)
 
