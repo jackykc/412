@@ -31,7 +31,7 @@ shape_id
 '''
 global shape_id_counts, object_counts, chosen_shape
 chosen_shape = "circle"
-stop_count = 0 # stop count 3 is the box
+stop_count = 3 # stop count 3 is the box
 
 shape_id_counts = {
     "task2": numpy.asarray([0, 0, 0]),
@@ -557,7 +557,7 @@ waypoints = [  # <1>
 waypoints_ar_tag = [
     [(3.9601,  0.6277, 0.0), (0.0, 0.0, -0.457517057285,  0.889200844744)], # 1
     [(3.34565406796, 0.317120621532, 0.0), (0.0, 0.0, -0.424949894771, 0.905216872873)], # 2
-    [(2.61783739719, -0.207863738387, 0.0), (0.0, 0.0, -0.534548762973, 0.832151229937)], # 3
+    [(2.61783739719, -0.207863738387, 0.0), (0.0, 0.0, -0.444548762973, 0.882151229937)], # 3
     [(1.84595498828, -0.39846898786, 0.0), (0.0, 0.0, -0.517863428489, 0.855463306889)], # 4
     [(1.1559460244, -0.788983823262, 0.0), (0.0, 0.0, -0.556989230814, 0.830519714851)] # 5
 ]
@@ -658,7 +658,7 @@ class Task4(smach.State):
         client.wait_for_result()
 
         # color stuff
-        # '''
+        '''
         callback_state = 4
         for index, pose in enumerate(waypoints_color):
             goal = goal_pose(pose)
@@ -683,7 +683,7 @@ class Task4(smach.State):
                 while rospy.Time.now() < wait_time:
                     sound_pub.publish(Sound(0))
                     display_led(4)
-        # '''
+        '''
         ####### box
         box_pos = None
         stand_pos = None
@@ -695,6 +695,8 @@ class Task4(smach.State):
 
             client.send_goal(goal)
             client.wait_for_result()
+            # if index == 2:
+            #     exit()
             current_marker_pose = None
             rospy.sleep(1)
             
@@ -716,7 +718,7 @@ class Task4(smach.State):
                     elif current_marker_id == 2:
                         sound_pub.publish(Sound(0))
                         display_led(1)
-        
+
         if (box_pos is not None) and (stand_pos is not None):
             difference = box_pos - stand_pos
             # negative = box is to the left
