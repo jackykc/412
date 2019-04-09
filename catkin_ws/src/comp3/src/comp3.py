@@ -408,7 +408,7 @@ class Stop(smach.State):
         elif stop_count == 4:
             return 'task4'
         elif stop_count == 5:
-            wait_time = rospy.Time.now() + rospy.Duration(1)
+            wait_time = rospy.Time.now() + rospy.Duration(0.5)
             while rospy.Time.now()<wait_time:
                 self.twist.linear.x = 0
                 self.twist.angular.z = 0
@@ -417,7 +417,7 @@ class Stop(smach.State):
         elif stop_count <0:
             return 'finish'
         # regular stop
-        wait_time = rospy.Time.now() + rospy.Duration(2)
+        wait_time = rospy.Time.now() + rospy.Duration(0.5)
         while rospy.Time.now()<wait_time:
             self.twist.linear.x = 0
             self.twist.angular.z = 0
@@ -445,16 +445,12 @@ class Task1(smach.State):
         callback_state = 0
         object_count = numpy.argmax(object_counts["task1"]) + 1
         for i in range(object_count):
-            # wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
-            # while rospy.Time.now()<wait_time_sound:
             sound_pub.publish(Sound(0))
-            wait_time_sound = rospy.Time.now() + rospy.Duration(1)
+            wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
             while rospy.Time.now()<wait_time_sound:
                 continue
-        wait_time = rospy.Time.now() + rospy.Duration(1.2)
         rospy.loginfo("object count" + str(object_count))
-        # while not rospy.is_shutdown():
-        #     continue
+        wait_time = rospy.Time.now() + rospy.Duration(1.2)
         while rospy.Time.now()<wait_time:
             display_led(object_count)
             self.twist.linear.x = 0
@@ -508,10 +504,8 @@ class Task2(smach.State):
             cmd_vel_pub.publish(self.twist)
         # track the line
         for i in range(object_count):
-            # wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
-            # while rospy.Time.now()<wait_time_sound:
             sound_pub.publish(Sound(0))
-            wait_time_sound = rospy.Time.now() + rospy.Duration(1)
+            wait_time_sound = rospy.Time.now() + rospy.Duration(0.5)
             while rospy.Time.now()<wait_time_sound:
                 continue
         
@@ -563,10 +557,11 @@ waypoints = [  # <1>
 waypoints_ar_tag = [
     [(3.9601,  0.6277, 0.0), (0.0, 0.0, -0.457517057285,  0.889200844744)], # 1
     [(3.34565406796, 0.317120621532, 0.0), (0.0, 0.0, -0.424949894771, 0.905216872873)], # 2
-    [(2.72807151809, -0.0691899371223, 0.0), (0.0, 0.0, -0.449581844831, 0.893239141999)], # 3
+    [(2.61783739719, -0.207863738387, 0.0), (0.0, 0.0, -0.534548762973, 0.832151229937)], # 3
     [(1.84595498828, -0.39846898786, 0.0), (0.0, 0.0, -0.517863428489, 0.855463306889)], # 4
     [(1.1559460244, -0.788983823262, 0.0), (0.0, 0.0, -0.556989230814, 0.830519714851)] # 5
 ]
+    # [(2.72807151809, -0.0691899371223, 0.0), (0.0, 0.0, -0.449581844831, 0.893239141999)], # 3
 
 waypoints_color = [
     # [(1.2, -0.86, 0.0), (0.0, 0.0, -0.9119, 0.410)], # 8
@@ -663,6 +658,7 @@ class Task4(smach.State):
         client.wait_for_result()
 
         # color stuff
+        # '''
         callback_state = 4
         for index, pose in enumerate(waypoints_color):
             goal = goal_pose(pose)
@@ -683,23 +679,25 @@ class Task4(smach.State):
                         is_shape = True
 
             if is_shape:
-                wait_time = rospy.Time.now() + rospy.Duration(2)
+                wait_time = rospy.Time.now() + rospy.Duration(0.5)
                 while rospy.Time.now() < wait_time:
                     sound_pub.publish(Sound(0))
                     display_led(4)
-
+        # '''
         ####### box
         box_pos = None
         stand_pos = None
         for index, pose in enumerate(waypoints_ar_tag):
+            if (box_pos is not None) and (stand_pos is not None):
+                break
+
             goal = goal_pose(pose)
 
             client.send_goal(goal)
             client.wait_for_result()
             current_marker_pose = None
             rospy.sleep(1)
-            if (box_pos is not None) and (stand_pos is not None):
-                break 
+            
             if current_marker_pose is not None: # ar tag found
                 if current_marker_id == 1:
                     box_pos = index
@@ -709,7 +707,7 @@ class Task4(smach.State):
                 if current_marker_pose:
                     ar_detected = True
                 
-                wait_time = rospy.Time.now() + rospy.Duration(2)
+                wait_time = rospy.Time.now() + rospy.Duration(0.5)
                 display_led(0)
                 while rospy.Time.now() < wait_time:
                     if current_marker_id == 1:
@@ -718,7 +716,7 @@ class Task4(smach.State):
                     elif current_marker_id == 2:
                         sound_pub.publish(Sound(0))
                         display_led(1)
-        '''
+        
         if (box_pos is not None) and (stand_pos is not None):
             difference = box_pos - stand_pos
             # negative = box is to the left
@@ -729,33 +727,42 @@ class Task4(smach.State):
                 push_from_pos = box_pos + 1
                 temp_waypoints = waypoints_right        
             # spot infront of box
+            goal = goal_pose(waypoints_ar_tag[box_pos])
+            client.send_goal(goal)
+            client.wait_for_result()
+
+
+            # spot beside box
             goal = goal_pose(temp_waypoints[push_from_pos])
             client.send_goal(goal)
             client.wait_for_result()
             
+            '''
             # spot beside box
             goal = goal_pose(waypoints[push_from_pos])
             client.send_goal(goal)
             client.wait_for_result()
+            '''
+
             ######## box
-            
             twist = Twist()
-            twist.linear.x = 0.3
+            twist.linear.x = 0.29
             twist.angular.z = 0
         
             if difference < 0:
                 difference = -1 * difference
             # push
-            for i in range(difference):
-                wait_time = rospy.Time.now() + rospy.Duration(5)
-                while rospy.Time.now() < wait_time:
-                    cmd_vel_pub.publish(twist)
-
-            twist.linear.x = -0.3
-            wait_time = rospy.Time.now() + rospy.Duration(5)
+            wait_time = rospy.Time.now() + rospy.Duration(5 * difference)
             while rospy.Time.now() < wait_time:
                 cmd_vel_pub.publish(twist)
-        '''
+
+            twist.linear.x = -0.25
+            wait_time = rospy.Time.now() + rospy.Duration(2)
+            while rospy.Time.now() < wait_time:
+                cmd_vel_pub.publish(twist)
+                sound_pub.publish(Sound(0))
+                display_led(1)
+            
         # go to end
         goal = goal_pose(waypoints[8])
         client.send_goal(goal)
