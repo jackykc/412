@@ -23,7 +23,7 @@
     <arg name="custom_param_file" value="$(arg custom_param_file)"/>
   </include>
 
-  <include file="$(find turtlebot_rviz_launchers)/launch/view_navigation.launch"/>
+  <!-- <include file="$(find turtlebot_rviz_launchers)/launch/view_navigation.launch"/> -->
 
   <!-- <node pkg="joy" name="joy_node" type="joy_node" output="screen"/> -->
 

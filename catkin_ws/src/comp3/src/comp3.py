@@ -76,12 +76,11 @@ def odom_callback(msg):
 
 def marker_cb(msg):
     if len(msg.markers):
-        # print msg.markers
-
         for marker in msg.markers:
             global current_marker_pose, current_marker_id
-            current_marker_pose = marker.pose.pose
-            current_marker_id = marker.id
+            if (marker.pose.pose.position.y) < 0.5 and (marker.pose.pose.position.y > -0.5):
+                current_marker_pose = marker.pose.pose
+                current_marker_id = marker.id
 
 def joy_callback(msg):
     global start
@@ -558,8 +557,8 @@ waypoints_ar_tag = [
     [(3.9601,  0.6277, 0.0), (0.0, 0.0, -0.457517057285,  0.889200844744)], # 1
     [(3.34565406796, 0.317120621532, 0.0), (0.0, 0.0, -0.424949894771, 0.905216872873)], # 2
     [(2.61783739719, -0.207863738387, 0.0), (0.0, 0.0, -0.444548762973, 0.882151229937)], # 3
-    [(1.84595498828, -0.39846898786, 0.0), (0.0, 0.0, -0.517863428489, 0.855463306889)], # 4
-    [(1.1559460244, -0.788983823262, 0.0), (0.0, 0.0, -0.556989230814, 0.830519714851)] # 5
+    [(1.84595498828, -0.46846898786, 0.0), (0.0, 0.0, -0.447863428489, 0.885463306889)], # 4
+    [(1.1559460244, -0.788983823262, 0.0), (0.0, 0.0, -0.526989230814, 0.860519714851)] # 5
 ]
     # [(2.72807151809, -0.0691899371223, 0.0), (0.0, 0.0, -0.449581844831, 0.893239141999)], # 3
 
@@ -571,7 +570,7 @@ waypoints_color = [
 ]
 
 waypoints_left = [
-    [(4.4510,  -0.123, 0.0), (0.0, 0.0, -0.964839, 0.2628407)],
+    [(4.4510,  -0.123, 0.0), (0.0, 0.0, -0.974839, 0.2328407)],
     [(3.745, -0.521, 0.0), (0.0, 0.0, -0.97598, 0.217831)],
     [(3.037, -0.8509, 0.0), (0.0, 0.0, -0.97222, 0.2340)],
     [(2.25, -1.20, 0.0), (0.0, 0.0, -0.97222, 0.2340)],
@@ -695,8 +694,6 @@ class Task4(smach.State):
 
             client.send_goal(goal)
             client.wait_for_result()
-            # if index == 2:
-            #     exit()
             current_marker_pose = None
             rospy.sleep(1)
             
@@ -715,7 +712,7 @@ class Task4(smach.State):
                     if current_marker_id == 1:
                         sound_pub.publish(Sound(0))
                         display_led(3)
-                    elif current_marker_id == 2:
+                    elif (current_marker_id == 2) or (current_marker_id == 3):
                         sound_pub.publish(Sound(0))
                         display_led(1)
 
@@ -728,13 +725,13 @@ class Task4(smach.State):
             else:
                 push_from_pos = box_pos + 1
                 temp_waypoints = waypoints_right        
-            # spot infront of box
-            goal = goal_pose(waypoints_ar_tag[box_pos])
+            # spot infront of push parking spot
+            goal = goal_pose(waypoints_ar_tag[push_from_pos])
             client.send_goal(goal)
             client.wait_for_result()
 
 
-            # spot beside box
+            # push spot infront of box
             goal = goal_pose(temp_waypoints[push_from_pos])
             client.send_goal(goal)
             client.wait_for_result()
@@ -754,7 +751,13 @@ class Task4(smach.State):
             if difference < 0:
                 difference = -1 * difference
             # push
-            wait_time = rospy.Time.now() + rospy.Duration(5 * difference)
+            if difference == 1:
+                wait_time = rospy.Time.now() + rospy.Duration(5)
+            elif difference == 2:
+                wait_time = rospy.Time.now() + rospy.Duration(7.6)
+            elif difference == 3:
+                wait_time = rospy.Time.now() + rospy.Duration(10.3)
+
             while rospy.Time.now() < wait_time:
                 cmd_vel_pub.publish(twist)
 
