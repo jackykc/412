@@ -583,8 +583,8 @@ waypoints_right = [
 
     [(3.745, -0.521, 0.0), (0.0, 0.0, 0.241439, 0.970415)],
     [(3.037, -0.8509, 0.0), (0.0, 0.0, 0.24462, 0.969617)],
-    [(2.25, -1.20, 0.0), (0.0, 0.0, 0.298229334623, 0.954494245121)],
-    [(1.492, -1.613, 0.0), (0.0, 0.0, 0.22920, 0.97337)]
+    [(2.32, -1.36, 0.0), (0.0, 0.0, 0.248229334623, 0.964494245121)],
+    [(1.592, -1.623, 0.0), (0.0, 0.0, 0.29920, 0.98337)]
 ]
 
 def goal_pose(pose):  # <2>
@@ -731,18 +731,12 @@ class Task4(smach.State):
             client.wait_for_result()
 
 
-            # push spot infront of box
+            # push spot infront of box, facing box
             goal = goal_pose(temp_waypoints[push_from_pos])
             client.send_goal(goal)
             client.wait_for_result()
             
-            '''
-            # spot beside box
-            goal = goal_pose(waypoints[push_from_pos])
-            client.send_goal(goal)
-            client.wait_for_result()
-            '''
-
+            # raw_input()
             ######## box
             twist = Twist()
             twist.linear.x = 0.29
